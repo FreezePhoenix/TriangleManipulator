@@ -1,0 +1,3 @@
+[submodule "triangle"]
+	path = triangle
+	url = https://github.com/libigl/triangle
