@@ -8,14 +8,10 @@ add_definitions(-DTRILIBRARY)
 add_definitions(-g)
 project("TriangleManipulator")
 
-add_executable(TriangleManipulator
-   "src/TriangleManipulator.cpp"
-)
-add_library(LIBTriangleManipulator SHARED
+add_library(TriangleManipulator OBJECT
    "src/TriangleManipulator.cpp"
 )
 
 add_subdirectory(./triangle ./triangle)
-target_link_libraries(TriangleManipulator triangle)
 
-target_link_libraries(LIBTriangleManipulator triangle)
+target_link_libraries(TriangleManipulator triangle)

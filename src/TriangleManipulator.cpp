@@ -3,37 +3,6 @@
 #include "TriangleManipulator.hpp"
 
 namespace TriangleManipulator {
-    triangulateio* create_instance() {
-        triangulateio* res = new triangulateio;
-        res->pointlist = (REAL *) NULL;
-        res->pointattributelist = (REAL *) NULL;
-        res->pointmarkerlist = (int *) NULL;
-        res->numberofpoints = 0;
-        res->numberofpointattributes = 0;
-        
-        res->trianglelist = (int *) NULL;
-        res->triangleattributelist = (REAL *) NULL;
-        res->neighborlist = (int *) NULL;
-        res->numberoftriangles = 0;
-        res->numberofcorners = 0;
-        res->numberoftriangleattributes = 0;
-        
-        res->segmentlist = (int *) NULL;
-        res->segmentmarkerlist = (int *) NULL;
-        res->numberofsegments = 0;
-        
-        res->holelist = (REAL *) NULL;
-        res->numberofholes = 0;
-
-        res->regionlist = (REAL *) NULL;
-        res->numberofregions = 0;
-        
-        res->edgelist = (int *) NULL;
-        res->edgemarkerlist = (int *) NULL;
-        res->normlist = (REAL *) NULL;
-        res->numberofedges = 0;
-        return res;
-    }
     void report(triangulateio* io, int markers, int reporttriangles, int reportneighbors, int reportsegments,
                 int reportedges, int reportnorms) {
         int i, j;
@@ -507,29 +476,4 @@ namespace TriangleManipulator {
         instance->numberofedges = 0;
     }
 
-}
-int main()
-{
-    triangulateio* stuff = TriangleManipulator::create_instance();
-    TriangleManipulator::read_poly_file("hut.poly", stuff);
-    triangulateio* outstuff = TriangleManipulator::create_instance();
-    triangulateio* voutstuff = TriangleManipulator::create_instance();
-    triangulateio* holeoutstuff = TriangleManipulator::create_instance();
-    triangulate("pPvD", stuff, outstuff, voutstuff);
-    TriangleManipulator::filter_points(voutstuff, holeoutstuff, [](int id, REAL x, REAL y, REAL attr) {
-        return attr == 2;
-    });
-    TriangleManipulator::inject_holes(holeoutstuff, stuff);
-    TriangleManipulator::filter_edges(voutstuff, outstuff, [](int p1, int p2, REAL norm1, REAL norm2) {
-        return p2 != -1;
-    });
-    voutstuff->numberofedges = outstuff->numberofedges;
-    voutstuff->edgelist = outstuff->edgelist;
-    voutstuff->edgemarkerlist = outstuff->edgemarkerlist;
-    voutstuff->normlist = outstuff->normlist;
-    TriangleManipulator::write_node_file("hut.1.v.node", voutstuff);
-    TriangleManipulator::write_edge_file("hut.1.v.edge", voutstuff);
-    TriangleManipulator::write_poly_file("hut.holes.poly", stuff);
-    TriangleManipulator::report(stuff, 1, 0, 0, 1, 0, 0);
-  return 0;
 }
