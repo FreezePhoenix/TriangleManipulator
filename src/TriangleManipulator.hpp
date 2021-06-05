@@ -64,6 +64,7 @@ namespace TriangleManipulator {
     void read_poly_file(std::string filename, triangulateio* in);
     void write_poly_file(std::string filename, triangulateio* out);
     void write_edge_file(std::string filename, triangulateio* out);
+    void write_ele_file(std::string filename, triangulateio* out);
     void cleanup(triangulateio* instance);
 }
 

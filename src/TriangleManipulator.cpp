@@ -406,6 +406,29 @@ namespace TriangleManipulator {
         }
         file.close();
     }
+
+    void write_ele_file(std::string filename, triangulateio* out) {
+        std::ofstream file(filename);
+        int triangles = out->numberoftriangles;
+        // TODO: See if there's a way to detect the number of elements per triangle?
+        int num_attributes = out->numberoftriangleattributes;
+        file << triangles << " 3 " << num_attributes << std::endl;
+        int remaining_triangles = triangles;
+        while(remaining_triangles --> 0) {
+            int p1 = out->trianglelist[3 * (triangles - (remaining_triangles + 1))];
+            int p2 = out->trianglelist[3 * (triangles - (remaining_triangles + 1)) + 1];
+            int p3 = out->trianglelist[3 * (triangles - (remaining_triangles + 1)) + 2];
+            file << (triangles - remaining_triangles) << " " << p1 << " " << p2 << " " << p3;
+            int attr = 0;
+            if(num_attributes > 0) {
+                do {
+                    file << " " << out->triangleattributelist[num_attributes * (triangles - (remaining_triangles + 1)) + attr++];
+                } while (attr < num_attributes);
+            }
+            file << std::endl;
+        }
+        file.close();
+    }
     
     void cleanup(triangulateio* instance) {
         if(instance->pointlist != (REAL *) NULL) {
