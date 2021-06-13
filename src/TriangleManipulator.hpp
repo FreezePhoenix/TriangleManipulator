@@ -3,11 +3,8 @@
 #ifndef TRIANGLEMANIPULATOR_HPP_
 #define TRIANGLEMANIPULATOR_HPP_
 
-#ifdef SINGLE
-#define REAL float
-#else /* not SINGLE */
+
 #define REAL double
-#endif /* not SINGLE */
 #define VOID int
 
 #include <functional>
@@ -16,12 +13,39 @@
 #include <fstream>
 #include <sstream>
 #include <iterator>
+#include <memory>
 #include <iostream>
 #include "../triangle/triangle.h"
 
 namespace TriangleManipulator {
-    inline triangulateio* create_instance() {
-        triangulateio* res = new triangulateio;
+    void cleanup(triangulateio* instance);
+    struct free_delete {
+        void operator()(void * x) { 
+            triangulateio* inp = (triangulateio *) x;
+            std::cout << "Cleaning up triangulateio instance" << std::endl;
+            free(inp->pointlist);
+            free(inp->pointattributelist);
+            free(inp->pointmarkerlist);
+            free(inp->trianglelist);
+            free(inp->triangleattributelist);
+            free(inp->neighborlist);
+            free(inp->segmentlist);
+            free(inp->segmentmarkerlist);
+            std::cout << inp << std::endl;
+            std::cout << (double *) NULL << std::endl;
+            std::cout << inp->holelist << std::endl;
+            if(inp->holelist != (double *) NULL) {
+                // free(inp->holelist);
+                inp->holelist = (double *) NULL;
+            }
+            free(inp->regionlist);
+            free(inp->edgelist);
+            free(inp->edgemarkerlist);
+            free(inp->normlist);
+        }
+    };
+    inline std::shared_ptr<triangulateio> create_instance() {
+        std::shared_ptr<triangulateio> res = std::shared_ptr<triangulateio>(new triangulateio(), cleanup);
         res->pointlist = (REAL *) NULL;
         res->pointattributelist = (REAL *) NULL;
         res->pointmarkerlist = (int *) NULL;
@@ -60,12 +84,12 @@ namespace TriangleManipulator {
     void read_node_section(std::istream& file, triangulateio* in);
     void write_node_section(std::ostream& file, triangulateio* out);
     void read_node_file(std::string filename, triangulateio* in);
-    void write_node_file(std::string filename, triangulateio* out);
     void read_poly_file(std::string filename, triangulateio* in);
+    void write_node_file(std::string filename, triangulateio* out);
     void write_poly_file(std::string filename, triangulateio* out);
     void write_edge_file(std::string filename, triangulateio* out);
     void write_ele_file(std::string filename, triangulateio* out);
-    void cleanup(triangulateio* instance);
+    void write_neigh_file(std::string filename, triangulateio* out);
 }
 
 #endif /* TRIANGLEMANIPULATOR_HPP_ */
