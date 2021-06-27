@@ -89,52 +89,13 @@ namespace TriangleManipulator {
         }
     }
 
-    void filter_edges(triangulateio* input, triangulateio* output, std::function<bool(int,int,REAL,REAL)> predicate) {
-        int edges_found = 0;
-        std::vector<int> found_edges = std::vector<int>();
-        int edges = input->numberofedges;
-        bool markers = input->edgemarkerlist != nullptr;
-        int remaining_edges = edges;
-        while(remaining_edges --> 0) {
-            int p1 = input->edgelist[2 * (edges - (remaining_edges + 1))];
-            int p2 = input->edgelist[2 * (edges - (remaining_edges + 1)) + 1];
-            REAL norm1 = input->normlist[2 * (edges - (remaining_edges + 1))];
-            REAL norm2 = input->normlist[2 * (edges - (remaining_edges + 1)) + 1];
-            if(predicate(p1, p2, norm1, norm2)) {
-                found_edges.push_back(edges - (remaining_edges + 1));
-                edges_found++;
-            }
-        }
-        remaining_edges = edges_found;
-        output->numberofedges = edges_found;
-        output->edgelist = (int *) malloc(edges_found * 2 * sizeof(int));
-        output->normlist = (REAL *) malloc(edges_found * 2 * sizeof(REAL));
-        if(markers) {
-            output->edgemarkerlist = (int *) malloc(edges_found * sizeof(int));
-        }
-        while(remaining_edges --> 0) {
-            int edge = found_edges[edges_found - (remaining_edges + 1)];
-            int p1 = input->edgelist[2 * edge];
-            int p2 = input->edgelist[2 * edge + 1];
-            REAL norm1 = input->normlist[2 * edge];
-            REAL norm2 = input->normlist[2 * edge + 1];
-            output->edgelist[2 * (edges_found - (remaining_edges + 1))] = p1;
-            output->edgelist[2 * (edges_found - (remaining_edges + 1)) + 1] = p2;
-            output->normlist[2 * (edges_found - (remaining_edges + 1))] = norm1;
-            output->normlist[2 * (edges_found - (remaining_edges + 1)) + 1] = norm2;
-            if(markers) {
-                output->edgemarkerlist[edges_found - (remaining_edges + 1)] = input->edgemarkerlist[edge];
-            }
-        }
-    }
-
     /**
      * @brief Injects points from one triangulate into the hole slots of another.
      * 
      * @param input 
      * @param output 
      */
-    void inject_holes(triangulateio* input, triangulateio* output) {
+    void inject_holes(std::shared_ptr<triangulateio> input, std::shared_ptr<triangulateio> output) {
         output->numberofholes = input->numberofpoints;
         output->holelist = input->pointlist;
     }
@@ -146,23 +107,29 @@ namespace TriangleManipulator {
      * @param output 
      * @param predicate 
      */
-    void filter_points(triangulateio* input, triangulateio* output, std::function<bool(int, REAL, REAL, REAL)> predicate) {
+    void filter_points(std::shared_ptr<triangulateio> input, std::shared_ptr<triangulateio> output, std::function<bool(int, REAL, REAL, REAL)> predicate) {
         int points_found = 0;
         std::vector<int> found_points = std::vector<int>();
         int points = input->numberofpoints;
         int attributes = input->numberofpointattributes;
         int remaining_points = points;
         bool markers = input->pointmarkerlist != nullptr;
-        while(remaining_points --> 0) {
-            REAL x = input->pointlist[2 * (points - (remaining_points + 1))];
-            REAL y = input->pointlist[2 * (points - (remaining_points + 1)) + 1];
-            int remaining_attributes = attributes;
-            while(remaining_attributes --> 0) {
-                REAL attr = input->pointattributelist[attributes * (points - (remaining_points + 1)) + (attributes - (remaining_attributes + 1))];
-                if(predicate(points - (remaining_points), x, y, attr)) {
-                    found_points.push_back((points - (remaining_points + 1)));
+        for(int i = 0; i < points; i++) {
+            double x = input->pointlist[2 * i];
+            double y = input->pointlist[2 * i + 1];
+            if(attributes) {
+                for(int j = 0; j < attributes; j++) {
+                    double attr = input->pointattributelist[attributes * i + j];
+                    if(predicate(i, x, y, attr)) {
+                        found_points.push_back(i);
+                        points_found++;
+                        break;
+                    }
+                }
+            } else {
+                if(predicate(i, x, y, 0)) {
+                    found_points.push_back(i);
                     points_found++;
-                    break;
                 }
             }
         }
@@ -175,20 +142,19 @@ namespace TriangleManipulator {
         if(attributes > 0) {
             output->pointattributelist = (REAL *) malloc(attributes * points_found * sizeof(REAL));
         }
-        while(remaining_points --> 0) {
-            int point = found_points[points_found - (remaining_points + 1)];
-            REAL x = input->pointlist[2 * point];
-            REAL y = input->pointlist[2 * point + 1];
-            output->pointlist[2 * (points_found - (remaining_points + 1))] = x;
-            output->pointlist[2 * (points_found - (remaining_points + 1)) + 1] = y;
+        for(int i = 0; i < points_found; i++) {
+            int point = found_points[i];
+            double x = input->pointlist[2 * point];
+            double y = input->pointlist[2 * point + 1];
+            output->pointlist[2 * i] = x;
+            output->pointlist[2 * i + 1] = y;
             if(markers) {
-                output->pointmarkerlist[points_found - (remaining_points + 1)] = input->pointmarkerlist[point];
+                output->pointmarkerlist[i] = input->pointmarkerlist[point];
             }
             if(attributes) {
-                int remaining_attributes = attributes;
-                while(remaining_attributes --> 0) {
-                    REAL attr = input->pointattributelist[attributes * point + (attributes - (remaining_attributes + 1))];
-                    output->pointattributelist[attributes * (points_found - (remaining_points + 1)) + (attributes - (remaining_attributes + 1))] = attr;
+                for(int j = 0; j < attributes; j++) {
+                    double attr = input->pointattributelist[attributes * point + j];
+                    output->pointattributelist[attributes * i + j] = attr;
                 }
             }
         }
@@ -235,7 +201,7 @@ namespace TriangleManipulator {
      * @param file 
      * @param in 
      */
-    void read_node_section(std::istream& file, triangulateio* in) {
+    void read_node_section(std::istream& file, std::shared_ptr<triangulateio> in) {
         std::vector<float> points_header = read_line(file);
         int points = points_header[0]; // Indicates number of points.
         int dimensions = points_header[1]; // Always 2
@@ -246,7 +212,9 @@ namespace TriangleManipulator {
             in->numberofpointattributes = point_attributes;
             in->pointlist = (REAL *) malloc(points * 2 * sizeof(REAL));
             in->pointattributelist = (REAL *) malloc(points * point_attributes * sizeof(REAL));
-            in->pointmarkerlist = (int *) malloc(points * sizeof(int));
+            if(point_markers) {
+                in->pointmarkerlist = (int *) malloc(points * sizeof(int));
+            }
         }
         for(int i = 0; i < points; i++) {
             std::vector<float> point = read_line(file);
@@ -258,12 +226,10 @@ namespace TriangleManipulator {
                 for(int j = 0; j < remaining_attributes; j++) {
                     in->pointattributelist[attributes * i + j] = point[3 + j];
                 }
-                in->pointmarkerlist[i] = point[3 + attributes]; // Marker
+                if(point_markers) {
+                    in->pointmarkerlist[i] = point[3 + attributes]; // Marker
+                }
             }
-        }
-        int remaining_points = points;
-        while(remaining_points --> 0) {
-            
         }
     }
 
@@ -273,18 +239,16 @@ namespace TriangleManipulator {
      * @param file 
      * @param out 
      */
-    void write_node_section(std::ostream& file, triangulateio* out) {
+    void write_node_section(std::ostream& file, std::shared_ptr<triangulateio> out) {
         int points = out->numberofpoints;
         int points_attributes = out->numberofpointattributes;
         int markers = out->pointmarkerlist == nullptr ? 0 : 1;
         file << out->numberofpoints << " 2 " << out->numberofpointattributes << " " << (out->pointmarkerlist == nullptr ? 0 : 1) << std::endl;
-        for(int i = 0; i < out->numberofpoints; i++) {
+        for(int i = 0; i < points; i++) {
             file << i << " "  << out->pointlist[2 * i] << " " << out->pointlist[2 * i + 1];
             int attr = 0;
-            if(points_attributes > 0) {
-                do {
-                    file << " " << out->pointattributelist[i + attr++];
-                } while (attr < points_attributes);
+            for(int j = 0; j < points_attributes; j++) {
+                file << " " << out->pointattributelist[points_attributes * i + j];
             }
             if(markers == 1) {
                 file << " " << out->pointmarkerlist[i];
@@ -299,7 +263,7 @@ namespace TriangleManipulator {
      * @param filename 
      * @param in 
      */
-    void read_node_file(std::string filename, triangulateio* in) {
+    void read_node_file(std::string filename, std::shared_ptr<triangulateio> in) {
         std::ifstream file(filename);
         read_node_section(file, in);
         file.close();
@@ -311,7 +275,7 @@ namespace TriangleManipulator {
      * @param filename 
      * @param out 
      */
-    void write_node_file(std::string filename, triangulateio* out) {
+    void write_node_file(std::string filename, std::shared_ptr<triangulateio> out) {
         std::ofstream file(filename);
         write_node_section(file, out);
         file.close();
@@ -323,7 +287,7 @@ namespace TriangleManipulator {
      * @param filename 
      * @param in 
      */
-    void read_poly_file(std::string filename, triangulateio* in) {
+    void read_poly_file(std::string filename, std::shared_ptr<triangulateio> in) {
         std::ifstream file(filename);
         read_node_section(file, in);
         std::vector<float> segments_header = read_line(file);
@@ -332,22 +296,20 @@ namespace TriangleManipulator {
         in->numberofsegments = segments;
         in->segmentlist = (int *) malloc(segments * 2 * sizeof(int));
         in->segmentmarkerlist = (int *) malloc(segments * sizeof(int));
-        int remaining_segments = segments;
-        while(remaining_segments --> 0) {
+        for(int i = 0; i < segments; i++) {
             std::vector<float> segment = read_line(file);
-            in->segmentlist[2 * (segments - (remaining_segments + 1))] = segment[1]; // First point ID
-            in->segmentlist[2 * (segments - (remaining_segments + 1)) + 1] = segment[2]; // Second point ID
-            in->segmentmarkerlist[segments - (remaining_segments + 1)] = 2; // segment[3]; // Marker
+            in->segmentlist[2 * i] = segment[1]; // First point ID
+            in->segmentlist[2 * i + 1] = segment[2]; // Second point ID
+            in->segmentmarkerlist[i] = 2; // segment[3]; // Marker
         }
         std::vector<float> holes_header = read_line(file);
         int holes = holes_header[0];
         in->numberofholes = holes;
         in->holelist = (REAL *) malloc(holes * 2 * sizeof(REAL));
-        int remaining_holes = holes;
-        while(remaining_holes --> 0) {
+        for(int i = 0; i < holes; i++) {
             std::vector<float> hole = read_line(file);
-            in->holelist[2 * (holes - (remaining_holes + 1))] = hole[0];
-            in->holelist[2 * (holes - (remaining_holes + 1)) + 1] = hole[1];
+            in->holelist[2 * i] = hole[0];
+            in->holelist[2 * i + 1] = hole[1];
         }
         file.close();
     }
@@ -358,7 +320,7 @@ namespace TriangleManipulator {
      * @param filename 
      * @param out 
      */
-    void write_poly_file(std::string filename, triangulateio* out) {
+    void write_poly_file(std::string filename, std::shared_ptr<triangulateio> out) {
         std::ofstream file(filename);
         write_node_section(file, out);
         int segments = out->numberofsegments;
@@ -385,7 +347,7 @@ namespace TriangleManipulator {
      * @param filename 
      * @param out 
      */
-    void write_edge_file(std::string filename, triangulateio* out) {
+    void write_edge_file(std::string filename, std::shared_ptr<triangulateio> out) {
         std::ofstream file(filename);
         int edges = out->numberofedges;
         file << edges << " " << (out->edgemarkerlist == nullptr ? 0 : 1) << std::endl;
@@ -408,7 +370,7 @@ namespace TriangleManipulator {
         file.close();
     }
 
-    void write_ele_file(std::string filename, triangulateio* out) {
+    void write_ele_file(std::string filename, std::shared_ptr<triangulateio> out) {
         std::ofstream file(filename);
         int triangles = out->numberoftriangles;
         // TODO: See if there's a way to detect the number of elements per triangle?
@@ -430,7 +392,11 @@ namespace TriangleManipulator {
         file.close();
     }
 
-    void write_neigh_file(std::string filename, triangulateio* out) {
+    void read_ele_file(std::string filename, std::shared_ptr<triangulateio> output) {
+
+    }
+
+    void write_neigh_file(std::string filename, std::shared_ptr<triangulateio> out) {
         std::ofstream file(filename);
         int triangles = out->numberoftriangles;
         file << triangles << " 3" << std::endl;
@@ -441,75 +407,6 @@ namespace TriangleManipulator {
             file << i << " " << n1 << " " << n2 << " " << n3 << std::endl;
         }
         file.close();
-    }
-    
-    void cleanup(triangulateio* instance) {
-        if(instance->pointlist != (REAL *) NULL) {
-            free(instance->pointlist);
-            instance->pointlist = (REAL *) NULL;
-        }
-        if(instance->pointattributelist != (REAL *) NULL) {
-            free(instance->pointattributelist);
-            instance->pointattributelist = (REAL *) NULL;
-        }
-        if(instance->pointmarkerlist != (int *) NULL) {
-            free(instance->pointmarkerlist);
-            instance->pointmarkerlist = (int *) NULL;
-        }
-        instance->numberofpoints = 0;
-        instance->numberofpointattributes = 0;
-        
-        if(instance->trianglelist != (int *) NULL) {
-            free(instance->trianglelist);
-            instance->trianglelist = (int *) NULL;
-        }
-        if(instance->triangleattributelist != (REAL *) NULL) {
-            free(instance->triangleattributelist);
-            instance->triangleattributelist = (REAL *) NULL;
-        }
-        if(instance->neighborlist != (int *) NULL) {
-            free(instance->neighborlist);
-            instance->neighborlist = (int *) NULL;
-        }
-        instance->numberoftriangles = 0;
-        instance->numberofcorners = 0;
-        instance->numberoftriangleattributes = 0;
-        
-        if(instance->segmentlist != (int *) NULL) {
-            free(instance->segmentlist);
-            instance->segmentlist = (int *) NULL;
-        }
-        if(instance->segmentmarkerlist != (int *) NULL) {
-            free(instance->segmentmarkerlist);
-            instance->segmentmarkerlist = (int *) NULL;
-        }
-        instance->numberofsegments = 0;
-        
-        if(instance->holelist != (REAL *) NULL) {
-            free(instance->holelist);
-            instance->holelist = (REAL *) NULL;
-        }
-        instance->numberofholes = 0;
-
-        if(instance->regionlist != (REAL *) NULL) {
-            free(instance->regionlist);
-            instance->regionlist = (REAL *) NULL;
-        }
-        instance->numberofregions = 0;
-        
-        if(instance->edgelist != (int *) NULL) {
-            free(instance->edgelist);
-            instance->edgelist = (int *) NULL;
-        }
-        if(instance->edgemarkerlist != (int *) NULL) {
-            free(instance->edgemarkerlist);
-            instance->edgemarkerlist = (int *) NULL;
-        }
-        if(instance->normlist != (REAL *) NULL) {
-            free(instance->normlist);
-            instance->normlist = (REAL *) NULL;
-        }
-        instance->numberofedges = 0;
     }
 
 }

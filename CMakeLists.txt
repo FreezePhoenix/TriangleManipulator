@@ -17,8 +17,9 @@ add_executable(TriangleManipulatorExecutable
    "src/test.cpp"
 )
 
-set_property(TARGET TriangleManipulator PROPERTY COMPILE_OPTIONS "-DTRIANGLE_MANIPULATOR_LIBRARY")
+set_property(TARGET TriangleManipulator PROPERTY COMPILE_OPTIONS "-DTRIANGLE_MANIPULATOR_LIBRARY -S")
 add_subdirectory(./triangle ./triangle)
 
+target_include_directories(TriangleManipulator PUBLIC "./include")
 target_link_libraries(TriangleManipulator triangle)
 target_link_libraries(TriangleManipulatorExecutable TriangleManipulator triangle)
