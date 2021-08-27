@@ -9,7 +9,7 @@
 #include <fstream>
 #include <sstream>
 #include <memory>
-#include <fmt/os.h>
+#include "fmt/os.h"
 #include "../triangle/triangle.h"
 
 namespace TriangleManipulator {

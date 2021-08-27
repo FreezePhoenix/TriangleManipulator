@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #include "TriangleManipulator.hpp"
-
+#include <fmt/os.h>
 
 namespace TriangleManipulator {
     /**

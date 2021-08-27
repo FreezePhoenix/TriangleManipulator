@@ -1,3 +1,6 @@
 [submodule "triangle"]
 	path = triangle
 	url = https://github.com/FreezePhoenix/triangle
+[submodule "fmt"]
+	path = fmt
+	url = https://github.com/fmtlib/fmt
