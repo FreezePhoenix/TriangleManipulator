@@ -65,7 +65,6 @@ namespace ShapeManipulator {
     }
     void from_list(const std::vector<std::shared_ptr<std::vector<PointLocation::Line>>>& list_of_lists, std::shared_ptr<triangulateio> output);
     // Length of the vector is twice the number of holes.
-<<<<<<< HEAD
     std::shared_ptr<std::vector<double>> find_points_inside(const std::vector<PointLocation::Line>& object);
     inline std::shared_ptr<std::vector<double>> find_points_inside(std::shared_ptr<std::vector<PointLocation::Line>> object) {
         return find_points_inside(*object);
@@ -136,13 +135,6 @@ namespace ShapeManipulator {
             }
         }
     }
-=======
-    std::vector<double>* find_points_inside(const std::vector<PointLocation::Line>& object);
-    inline std::vector<double>* find_points_inside(std::shared_ptr<std::vector<PointLocation::Line>> object) {
-        return find_points_inside(*object);
-    };
-    std::vector<double>* find_points_inside(std::shared_ptr<triangulateio> input);
->>>>>>> 113f69d646b8a9a4c002af5486ab261cdea94bb8
 }
 
 #endif /* ALBOT_SHAPEMANIPULATOR_HPP_ */
