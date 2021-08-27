@@ -42,12 +42,15 @@ namespace PointLocation {
             Point first;
             Point second;
         };
+<<<<<<< HEAD
         struct {
             short x1;
             short y1;
             short x2;
             short y2;
         };
+=======
+>>>>>>> 113f69d646b8a9a4c002af5486ab261cdea94bb8
         unsigned long int hash;
         constexpr Line() {
             this->first = Point{0, 0};
@@ -102,10 +105,14 @@ namespace PointLocation {
             double x;
             double y;
         };
+<<<<<<< HEAD
         union {
             Point point;
             double64x2_t matrix;
         };
+=======
+        Point point;
+>>>>>>> 113f69d646b8a9a4c002af5486ab261cdea94bb8
         Vertex(double x, double y);
         std::set<unsigned int> triangles;
         bool removed = false;
@@ -122,6 +129,7 @@ namespace PointLocation {
     class DirectedAcyclicGraph {
         private:
             unsigned int _root;
+<<<<<<< HEAD
             std::unordered_map<unsigned int, std::unordered_set<unsigned int>> graph;
         public:
             DirectedAcyclicGraph();
@@ -129,6 +137,14 @@ namespace PointLocation {
             std::unordered_set<unsigned int>& neighbhors(unsigned int n);
             unsigned int root();
             void write_to_file(std::string base_name);
+=======
+            std::unordered_map<unsigned int, std::unordered_set<unsigned int>*> graph;
+        public:
+            DirectedAcyclicGraph();
+            void add_directed_edge(unsigned int first, unsigned int second);
+            std::unordered_set<unsigned int>* neighbhors(unsigned int n);
+            unsigned int root();
+>>>>>>> 113f69d646b8a9a4c002af5486ab261cdea94bb8
     };
 
     class PlanarGraph {
@@ -151,6 +167,7 @@ namespace PointLocation {
             std::vector<Triangle> get_triangulation(const std::vector<unsigned int>& polygon, std::vector<unsigned int>* hole);
             std::unordered_set<unsigned int> triangulate_polygon(const std::vector<unsigned int>& polygon, std::vector<unsigned int>* hole);
             std::unordered_set<unsigned int> triangulate_polygon(const std::vector<unsigned int>& polygon);
+<<<<<<< HEAD
             void remove_vertices(std::vector<unsigned int> vertices, std::shared_ptr<DirectedAcyclicGraph> dag);
             bool triangles_intersect(unsigned int first, unsigned int second);
             void write_to_file(std::string base_name);
@@ -171,13 +188,39 @@ namespace PointLocation {
         return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x); 
     };
 
+=======
+            void remove_vertices(std::vector<unsigned int> vertices, DirectedAcyclicGraph* dag);
+            bool triangles_intersect(unsigned int first, unsigned int second);
+    };
+
+    struct GraphInfo {
+        PlanarGraph* planar_graph;
+        DirectedAcyclicGraph* directed_graph;        
+    };
+
+    inline GraphInfo create_graph(std::shared_ptr<triangulateio> input) {
+        PlanarGraph* graph = new PlanarGraph(input);
+        DirectedAcyclicGraph* dag = new DirectedAcyclicGraph();
+
+        return GraphInfo(graph, dag);
+    };
+    
+    inline constexpr double ccw(const Vertex::Point& a, const Vertex::Point& b, const Vertex::Point& c) { 
+        return (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y); 
+    };
+
+>>>>>>> 113f69d646b8a9a4c002af5486ab261cdea94bb8
     inline constexpr bool triangle_contains_point(const Vertex::Point& p, const Vertex::Point& p1, const Vertex::Point& p2, const Vertex::Point& p3) {
         return ((ccw(p1, p2, p) > 0) && (ccw(p2, p3, p) > 0) && (ccw(p3, p1, p) > 0)); 
     }; 
     inline constexpr bool sides_intersect(const Vertex::Point& a, const Vertex::Point& b, const Vertex::Point& c, const Vertex::Point& d) { 
         return ((ccw(a, b, c) > 0) ? (ccw(a, b, d) < 0) : (ccw(a, b, d) > 0)) && ((ccw(c, d, a) > 0) ? (ccw(c, d, b) < 0) : (ccw(c, d, b) > 0));
+<<<<<<< HEAD
     };
     void write_to_file(std::string base_name, PlanarGraph& pgraph, DirectedAcyclicGraph& dagraph);
+=======
+    }; 
+>>>>>>> 113f69d646b8a9a4c002af5486ab261cdea94bb8
 }
 
 namespace std {
