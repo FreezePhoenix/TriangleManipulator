@@ -1,16 +1,20 @@
+#include "TriangleManipulator.hpp"
 #include "PointLocation.hpp"
 #include <iostream>
+#include <math.h>
+#include "fmt/os.h"
+
+typedef float float32x4_t __attribute__ ((__vector_size__ (16)));
 void test() {
     std::shared_ptr<triangulateio> test = TriangleManipulator::create_instance();
-    TriangleManipulator::read_poly_file("test.poly", test.get());
-    PointLocation::PlanarGraph graph = PointLocation::PlanarGraph(test.get());
-    PointLocation::RemovedVertexInfo info = graph.remove_vertex(4);
-    std::vector<unsigned int> polygon = {0, 1, 2, 3, 4};
-    std::vector<unsigned int> triangulation = PointLocation::triangulate(graph, &polygon, nullptr);
-    for(unsigned int triangle : triangulation) {
-        PointLocation::Triangle tri = graph.all_triangles[triangle];
-        std::cout << tri.vertex_one << ", " << tri.vertex_two << ", " << tri.vertex_three << std::endl;
-    }
+    TriangleManipulator::read_poly_file("test.poly", test);
+    TriangleManipulator::write_poly_file("testa.poly", test);
+    PointLocation::GraphInfo info = PointLocation::create_graph(test);
+    info.process();
+    // info.planar_graph->write_to_file("Planar");
+    // PointLocation::PlanarGraph* graphh = PointLocation::PlanarGraph::from_file("Planar");
+    // std::cout << graphh->all_triangles[2].vertex_three << std::endl;
+    // std::cout << sizeof(int) << "," << sizeof(int[graphh->all_triangles[2].vertex_three]) << std::endl;
 }
 int main() {
     test();

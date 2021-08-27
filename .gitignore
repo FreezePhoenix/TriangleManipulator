@@ -44,3 +44,5 @@ TriangleManipulatorExecutable
 **/Makefile
 **/.vscode
 **/cmake_install.cmake
+**/.cmake
+**.ele

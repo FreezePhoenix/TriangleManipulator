@@ -2,10 +2,14 @@
 # project specific logic here.
 #
 cmake_minimum_required (VERSION 3.5)
-add_definitions(-std=c++20 -w -g)
-add_definitions(-DTRILIBRARY)
+add_definitions(-std=c++20 -ggdb -O3 -Wall -static)
+# add_definitions(-DTRILIBRARY)
 
 project("TriangleManipulator")
+
+include_directories(
+   "./include"
+)
 
 add_library(TriangleManipulator STATIC
    "src/TriangleManipulator.cpp"
@@ -17,8 +21,9 @@ add_executable(TriangleManipulatorExecutable
    "src/test.cpp"
 )
 
-set_property(TARGET TriangleManipulator PROPERTY COMPILE_OPTIONS "-DTRIANGLE_MANIPULATOR_LIBRARY")
+set_property(TARGET TriangleManipulator PROPERTY COMPILE_OPTIONS -DTRIANGLE_MANIPULATOR_LIBRARY)
+
 add_subdirectory(./triangle ./triangle)
 
-target_link_libraries(TriangleManipulator triangle)
-target_link_libraries(TriangleManipulatorExecutable TriangleManipulator triangle)
+target_link_libraries(TriangleManipulator triangle fmt)
+target_link_libraries(TriangleManipulatorExecutable TriangleManipulator triangle fmt)
