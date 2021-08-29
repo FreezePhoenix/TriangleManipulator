@@ -9,7 +9,7 @@
 #include <fstream>
 #include <sstream>
 #include <memory>
-#include "fmt/os.h"
+#include "../include/fmt/os.h"
 #include "../triangle/triangle.h"
 
 namespace TriangleManipulator {
@@ -81,19 +81,48 @@ namespace TriangleManipulator {
     void filter_points(std::shared_ptr<triangulateio> input, std::shared_ptr<triangulateio> output, std::function<bool(int, REAL, REAL, REAL)> predicate);
     void inject_holes(std::shared_ptr<triangulateio> input, std::shared_ptr<triangulateio> output);
     template <typename T>
-    inline T parse_str(std::string str) {
+    T parse_str(const std::string& str) {
         return std::stof(str);
     }
-    template <>
-    inline REAL parse_str<REAL>(std::string str) {
-        return std::stoi(str);
-    }
-    template <>
-    inline int parse_str<int>(std::string str) {
-        return std::stoi(str);
-    }
-    template <typename T = REAL>
+    template <typename T>
     inline std::vector<T> read_line(std::istream& stream) {
+        std::string str;
+        do {
+        // Ignore comment lines.
+            std::getline(stream, str);
+        } while (str.front() == '#');
+
+        std::istringstream new_stream = std::istringstream(str);
+        
+        std::vector<T> vec = std::vector<T>();
+        vec.reserve(std::count(str.cbegin(), str.cend(), ' ') + 1);
+        
+        while (new_stream >> str) {
+            vec.emplace_back(parse_str<T>(str));
+        };
+        return vec;
+    };
+    template <typename T = REAL>
+    inline T read_single(std::istream& stream) {
+        std::string str;
+        do {
+            // Ignore comment lines.
+            std::getline(stream, str);
+        } while (str.front() == '#');
+        // Turn the string into a stream.
+        std::istringstream new_stream(str);
+        new_stream >> str;
+        return parse_str<T>(str);
+    };
+
+    template<typename T>
+    inline T read_var(std::istringstream& stream) {
+        std::string num;
+        stream >> num;
+        return parse_str<T>(num);
+    }
+    template <typename ...Args>
+    inline std::tuple<Args...> read_many(std::istream& stream) {
         std::string str;
         do {
             // Ignore comment lines.
@@ -101,17 +130,9 @@ namespace TriangleManipulator {
         } while (str.front() == '#');
         // Turn the string into a stream.
         std::istringstream new_stream = std::istringstream(str);
-        // Make an empty vector.
-        std::vector<T> vec = std::vector<T>();
-        vec.reserve(std::count(str.cbegin(), str.cend(), ' ') + 1);
-        // Read the line.
-        std::string num;
-        while (new_stream.peek() != EOF) {
-            new_stream >> num;
-            vec.emplace_back(parse_str<T>(num));
-        };
-        return vec;
-    };
+        return { read_var<Args>(new_stream)... };
+    }
+    // template std::tuple<unsigned int, unsigned int, unsigned int, bool> read_many<unsigned int, unsigned int, unsigned int, bool>(std::istream& stream);
     void print_vector(std::vector<float>& vec);
     void read_node_section(std::istream& file, std::shared_ptr<triangulateio> in);
     void write_node_section(fmt::v8::ostream& file, std::shared_ptr<triangulateio> out);
@@ -121,6 +142,7 @@ namespace TriangleManipulator {
     void write_poly_file(std::string filename, std::shared_ptr<triangulateio> out);
     void write_edge_file(std::string filename, std::shared_ptr<triangulateio> out);
     void write_ele_file(std::string filename, std::shared_ptr<triangulateio> out);
+    void read_ele_file(std::string filename, std::shared_ptr<triangulateio> in);
     void write_neigh_file(std::string filename, std::shared_ptr<triangulateio> out);
 }
 

@@ -46,3 +46,5 @@ TriangleManipulatorExecutable
 **/cmake_install.cmake
 **/.cmake
 **.ele
+**.edge
+**.node

@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "TriangleManipulator.hpp"
+#include "TriangleManipulatorTemplates.hpp"
 #include <fmt/os.h>
 
 namespace TriangleManipulator {
@@ -80,12 +80,13 @@ namespace TriangleManipulator {
      * @param in 
      */
     void read_node_section(std::istream& file, std::shared_ptr<triangulateio> in) {
-        std::vector<int> points_header = read_line<int>(file);
-        int points = points_header[0]; // Indicates number of points.
-        // int dimensions = points_header[1]; // Always 2
-        int point_attributes = points_header[2]; // Usually 1
-        int point_markers = points_header[3]; // Always 1 or 0
-        if(points > 0 && in->numberofpoints == 0) {
+        std::vector<unsigned int> points_header = read_line<unsigned int>(file);
+        unsigned int points = points_header[0]; // Indicates number of points.
+        unsigned int point_attributes  = points_header[2]; // Usually 1
+        bool point_markers = points_header[3]; // Always 1 or 0
+        // std::tie(points, std::ignore, point_attributes, point_markers) = read_many<unsigned int, unsigned int, unsigned int, bool>(file);
+        // fmt::print("{} {} {}\n", points, point_attributes, point_markers);
+        if (points > 0 && in->numberofpoints == 0) {
             in->numberofpoints = points;
             in->numberofpointattributes = point_attributes;
             in->pointlist = trimalloc<REAL>(points * 2);
@@ -98,7 +99,7 @@ namespace TriangleManipulator {
         REAL* point_attribute_ptr = in->pointattributelist.get();
         int* point_marker_ptr = in->pointmarkerlist.get();
         for (int i = 0; i < points; i++) {
-            std::vector<REAL> point = read_line(file);
+            std::vector<REAL> point = read_line<REAL>(file);
             if(points > 0 && in->numberofpoints != 0) {
                 int attributes = in->numberofpointattributes;
                 // point_ptr[2 * i] = point[1]; // X
@@ -172,9 +173,10 @@ namespace TriangleManipulator {
     void read_poly_file(std::string filename, std::shared_ptr<triangulateio> in) {
         std::ifstream file(filename);
         read_node_section(file, in);
-        std::vector<int> segments_header = read_line<int>(file);
-        int segments = segments_header[0];
-        int markers = segments_header[1];
+        std::vector<unsigned int> segments_header = read_line<unsigned int>(file);
+        unsigned int segments = segments_header[0];
+        unsigned int markers = segments_header[1];
+        // std::tie(segments, markers) = read_many<int, int>(file);
         in->numberofsegments = segments;
         in->segmentlist = trimalloc<int>(segments * 2);
         if (markers) {
@@ -182,26 +184,25 @@ namespace TriangleManipulator {
         }
         int* segment_ptr = in->segmentlist.get();
         int* segment_marker_ptr = in->segmentmarkerlist.get();
-        for (int i = 0; i < segments; i++) {
-            std::vector<int> segment = read_line<int>(file);
+        for (unsigned int i = 0; i < segments; i++) {
+            std::vector<unsigned int> segment = read_line<unsigned int>(file);
             // *segment_ptr++ = segment[1]; // First point ID
             // *segment_ptr++ = segment[2]; // Second point ID
-            memcpy(segment_ptr, segment.data() + 1, sizeof(int) * 2);
+            memcpy(segment_ptr + i * 2, segment.data() + 1, sizeof(unsigned int) * 2);
             if (markers) {
                 *segment_marker_ptr++ = 2; // segment[3]; // Marker
             }
         }
-        int holes = read_line<int>(file)[0];
+        unsigned int holes = read_single<unsigned int>(file);
         in->numberofholes = holes;
         in->holelist = trimalloc<REAL>(holes * 2);
         REAL* hole_ptr = in->holelist.get();
-        for (int i = 0; i < holes; i++) {
-            std::vector<REAL> hole = read_line(file);
+        for (unsigned int i = 0; i < holes; i++) {
+            std::vector<REAL> hole = read_line<REAL>(file);
             memcpy(hole_ptr + i * 2, hole.data(), sizeof(REAL) * 2);
         }
         file.close();
     }
-
     /**
      * @brief Method to write a .poly file. First writes the node section, then the segment section, then the hole section.
      * 
@@ -254,10 +255,9 @@ namespace TriangleManipulator {
             int p2 = *edges_ptr++;
             file.print("\n{} {} {}", i, p1, p2);
             if (p2 == -1) {
-                REAL first = *norms_ptr++;
-                file.print(" {} {}", first, *norms_ptr++);
+                file.print(" {} {}", norms_ptr[i * 2], norms_ptr[i * 2 + 1]);
             } else if (markers) {
-                file.print(" {}", *markers_ptr++);
+                file.print(" {}", markers_ptr[i]);
             }
         }
         file.close();
@@ -265,22 +265,42 @@ namespace TriangleManipulator {
 
     void write_ele_file(std::string filename, std::shared_ptr<triangulateio> out) {
         fmt::v8::ostream file = fmt::output_file(filename.c_str());
-        const std::size_t triangles = out->numberoftriangles;
+        const unsigned int triangles = out->numberoftriangles;
         const unsigned int num_attributes = out->numberoftriangleattributes;
-        const int* triangles_ptr = out->trianglelist.get();
+        const unsigned int* triangles_ptr = out->trianglelist.get();
         const REAL* attributes_ptr = out->triangleattributelist.get();
         file.print("{} 3 {}", triangles, num_attributes);
-        for (std::size_t i = 0; i < triangles; i++) {
+        for (unsigned int i = 0; i < triangles; i++) {
             file.print("\n{} {} {} {}", i, triangles_ptr[3 * i], triangles_ptr[3 * i + 1], triangles_ptr[3 * i + 2]);
             for (unsigned int j = 0; j < num_attributes; j++) {
-                file.print(" {}", attributes_ptr[num_attributes * i + j]);
+                file.print(" {}", *attributes_ptr++);
             }
         }
         file.close();
     }
 
-    void read_ele_file(std::string filename, std::shared_ptr<triangulateio> output) {
-
+    void read_ele_file(std::string filename, std::shared_ptr<triangulateio> in) {
+        std::ifstream file(filename);
+        std::vector<unsigned int> header = read_line<unsigned int>(file);
+        in->numberoftriangles = header[0];
+        in->numberoftriangleattributes = header[2];
+        
+        in->trianglelist = trimalloc<unsigned int>(in->numberoftriangles * 3);
+        if (in->numberoftriangleattributes > 0) {
+            in->triangleattributelist = trimalloc<REAL>(in->numberoftriangles * 3);
+        }
+        unsigned int* triangles_ptr = in->trianglelist.get();
+        REAL* attributes_ptr = in->triangleattributelist.get();
+        for (std::size_t i = 0; i < in->numberoftriangles; i++) {
+            std::vector<REAL> triangle = read_line<REAL>(file);
+            triangles_ptr[i*3]      = (unsigned int) triangle[1];
+            triangles_ptr[i*3 + 1]  = (unsigned int) triangle[2];
+            triangles_ptr[i*3 + 2]  = (unsigned int) triangle[3];
+            for (std::size_t j = 0; j < in->numberoftriangleattributes; j++) {
+                attributes_ptr[i * in->numberoftriangleattributes + j] = triangle[4 + j];
+            }
+        }
+        file.close();
     }
 
     void write_neigh_file(std::string filename, std::shared_ptr<triangulateio> out) {

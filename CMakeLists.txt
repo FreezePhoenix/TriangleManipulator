@@ -2,7 +2,7 @@
 # project specific logic here.
 #
 cmake_minimum_required (VERSION 3.5)
-add_definitions(-std=c++20 -O3 -Wall -static)
+add_definitions(-std=c++20 -O3 -Wall -g)
 # add_definitions(-DTRILIBRARY)
 
 project("TriangleManipulator")
