@@ -3,7 +3,7 @@
 #ifndef POINT_LOCATION_HPP_
 #define POINT_LOCATION_HPP_
 
-#include "../triangle/triangle.h"
+#include "triangle.h"
 #include <map>
 #include <unordered_map>
 #include <unordered_set>
@@ -103,7 +103,8 @@ namespace PointLocation {
             return (!first.emplace(rhs.vertex_one).second) && (!first.emplace(rhs.vertex_two).second) && (!first.emplace(rhs.vertex_three).second);
         }
     };
-    typedef double double64x2_t __attribute__ ((__vector_size__ (16)));
+    typedef double double64x2_t __attribute__((__vector_size__(16)));
+    typedef long int64x2_t __attribute((__vector_size__(16)));
     struct Vertex {
         unsigned int id;
         struct Point {
@@ -145,7 +146,7 @@ namespace PointLocation {
             std::vector<Vertex> vertices;
             std::vector<std::unordered_set<unsigned int>> adjacency_list;
             std::vector<Triangle> all_triangles;
-            std::vector<std::set<unsigned int>> triangulations;
+            std::vector<std::unordered_set<unsigned int>> triangulations;
             unsigned int num_vertices;
             unsigned int add_vertex(double x, double y);
             inline std::unordered_set<unsigned int>& neighbhors(unsigned int vertex_id) {
@@ -172,10 +173,21 @@ namespace PointLocation {
     inline constexpr bool point_inside_triangle(const Vertex::Point& p, const Vertex::Point& p1, const Vertex::Point& p2, const Vertex::Point& p3) {
         return ((ccw(p1, p2, p) > 0) && (ccw(p2, p3, p) > 0) && (ccw(p3, p1, p) > 0)); 
     };
-    inline constexpr bool sides_intersect(const Vertex::Point& a, const Vertex::Point& b, const Vertex::Point& c, const Vertex::Point& d) { 
+    inline constexpr bool sides_intersect(const Vertex::Point& a, const Vertex::Point& b, const Vertex::Point& c, const Vertex::Point& d) {
         return ((ccw(a, b, c) > 0) ? (ccw(a, b, d) < 0) : (ccw(a, b, d) > 0)) && ((ccw(c, d, a) > 0) ? (ccw(c, d, b) < 0) : (ccw(c, d, b) > 0));
     };
-
+    inline constexpr double ccw(const double64x2_t a, const double64x2_t b, const double64x2_t c) {
+        double64x2_t a2 = __builtin_shuffle(a, int64x2_t{ 1, 0 });
+        double64x2_t c2 = __builtin_shuffle(c, int64x2_t{ 1, 0 });
+        double64x2_t d = (b - a) * (c2 - a2);
+        return d[0] - d[1];
+    };
+    inline constexpr bool point_inside_triangle(const double64x2_t p, const double64x2_t p1, const double64x2_t p2, const double64x2_t p3) {
+        return ((ccw(p1, p2, p) > 0) && (ccw(p2, p3, p) > 0) && (ccw(p3, p1, p) > 0));
+    };
+    inline constexpr bool sides_intersect(const double64x2_t a, const double64x2_t b, const double64x2_t c, const double64x2_t d) {
+        return ((ccw(a, b, c) > 0) ? (ccw(a, b, d) < 0) : (ccw(a, b, d) > 0)) && ((ccw(c, d, a) > 0) ? (ccw(c, d, b) < 0) : (ccw(c, d, b) > 0));
+    };
     class GraphInfo {
         public:
             std::shared_ptr<PlanarGraph> planar_graph;

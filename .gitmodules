@@ -1,6 +1,6 @@
 [submodule "triangle"]
-	path = triangle
+	path = lib/triangle
 	url = https://github.com/FreezePhoenix/triangle
 [submodule "fmt"]
-	path = fmt
+	path = lib/fmt
 	url = https://github.com/fmtlib/fmt

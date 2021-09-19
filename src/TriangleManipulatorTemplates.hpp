@@ -19,7 +19,7 @@ namespace TriangleManipulator {
         return std::stoul(str);
     }
     template <>
-    int parse_str<int>(const std::string& str) {
+    inline int parse_str<int>(const std::string& str) {
         return std::stoi(str);
     }
 }

@@ -9,6 +9,7 @@ project("TriangleManipulator")
 
 include_directories(
    "./include"
+   "./lib/triangle"
 )
 
 add_library(TriangleManipulator STATIC
@@ -23,8 +24,8 @@ add_executable(TriangleManipulatorExecutable
 
 set_property(TARGET TriangleManipulator PROPERTY COMPILE_OPTIONS -DTRIANGLE_MANIPULATOR_LIBRARY)
 
-add_subdirectory(./triangle ./triangle)
-add_subdirectory(fmt)
+add_subdirectory(lib/triangle)
+add_subdirectory(lib/fmt)
 
 target_link_libraries(TriangleManipulator triangle fmt)
 target_link_libraries(TriangleManipulatorExecutable TriangleManipulator triangle fmt)

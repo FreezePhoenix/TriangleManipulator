@@ -9,8 +9,8 @@
 #include <fstream>
 #include <sstream>
 #include <memory>
-#include "../include/fmt/os.h"
-#include "../triangle/triangle.h"
+#include <fmt/os.h>
+#include <triangle.h>
 
 namespace TriangleManipulator {
     inline std::shared_ptr<triangulateio> create_instance() {

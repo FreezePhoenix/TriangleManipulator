@@ -39,7 +39,7 @@ namespace PointLocation {
         this->vertices = std::vector<Vertex>();
         this->all_triangles = std::vector<Triangle>();
         this->adjacency_list = std::vector<std::unordered_set<unsigned int>>();
-        this->triangulations = std::vector<std::set<unsigned int>>();
+        this->triangulations = std::vector<std::unordered_set<unsigned int>>();
         this->num_vertices = 0;
     }
 
@@ -120,7 +120,7 @@ namespace PointLocation {
         for (unsigned int i = 0; i < output->numberofedges; i++) {
             this->connect_vertices(output_edge_ptr[i * 2], output_edge_ptr[i * 2 + 1]);
         }
-        this->triangulations.push_back(std::set<unsigned int>());
+        this->triangulations.push_back(std::unordered_set<unsigned int>());
         this->all_triangles.reserve(output->numberoftriangles);
         const unsigned int* output_triangle_ptr = output->trianglelist.get();
         for (std::size_t i = 0; i < output->numberoftriangles; i++) {
@@ -308,32 +308,30 @@ namespace PointLocation {
     unsigned int DirectedAcyclicGraph::root() {
         return this->_root;
     }
-
     inline bool PlanarGraph::triangles_intersect(unsigned int first, unsigned int second) {
         Triangle tri1 = this->all_triangles[first];
         Triangle tri2 = this->all_triangles[second];
 
-        const Vertex::Point& t1p1 = this->vertices[tri1.vertex_one].point;
-        const Vertex::Point& t1p2 = this->vertices[tri1.vertex_two].point;
-        const Vertex::Point& t1p3 = this->vertices[tri1.vertex_three].point;
-        const Vertex::Point& t2p1 = this->vertices[tri2.vertex_one].point;
-        const Vertex::Point& t2p2 = this->vertices[tri2.vertex_two].point;
-        const Vertex::Point& t2p3 = this->vertices[tri2.vertex_three].point;
-        for(int i = 0; i < 3; i++) {
-            const PointLocation::Vertex::Point& a = this->vertices[tri2.vertices[i]].point;
-            if(point_inside_triangle(a, t1p1, t1p2, t1p3)) {
+        const double64x2_t t1p1 = this->vertices[tri1.vertex_one].matrix;
+        const double64x2_t t1p2 = this->vertices[tri1.vertex_two].matrix;
+        const double64x2_t t1p3 = this->vertices[tri1.vertex_three].matrix;
+        const double64x2_t t2p1 = this->vertices[tri2.vertex_one].matrix;
+        const double64x2_t t2p2 = this->vertices[tri2.vertex_two].matrix;
+        const double64x2_t t2p3 = this->vertices[tri2.vertex_three].matrix;
+        for (unsigned int i = 0; i < 3; i++) {
+            if(point_inside_triangle(this->vertices[tri2.vertices[i]].matrix, t1p1, t1p2, t1p3)) {
                 return true;
             }
         }
         for(int i = 0; i < 3; i++) {
-            const PointLocation::Vertex::Point& a = this->vertices[tri1.vertices[i]].point; 
-            const PointLocation::Vertex::Point& b = this->vertices[tri1.vertices[(i == 2) ? 0 : i+1]].point; 
+            const double64x2_t a = this->vertices[tri1.vertices[i]].matrix; 
+            const double64x2_t b = this->vertices[tri1.vertices[(i == 2) ? 0 : i+1]].matrix; 
             if (point_inside_triangle(a, t2p1, t2p2, t2p3)) {
                 return true;
             }
-            for(int j = 0; j < 3; j++) {
-                const PointLocation::Vertex::Point& c = this->vertices[tri2.vertices[j]].point; 
-                const PointLocation::Vertex::Point& d = this->vertices[tri2.vertices[(j == 2) ? 0 : j+1]].point; 
+            for (int j = 0; j < 3; j++) {
+                const double64x2_t c = this->vertices[tri2.vertices[j]].matrix;
+                const double64x2_t d = this->vertices[tri2.vertices[(j == 2) ? 0 : j+1]].matrix; 
                 if(sides_intersect(a, b, c, d)) {
                     return true;
                 }
@@ -343,7 +341,7 @@ namespace PointLocation {
     }
 
     void PlanarGraph::remove_vertices(std::vector<unsigned int> vertices, std::shared_ptr<DirectedAcyclicGraph> dag) {
-        std::set<unsigned int> triangles = std::set<unsigned int>(this->triangulations.back());
+        std::unordered_set<unsigned int> triangles = std::unordered_set<unsigned int>(this->triangulations.back());
         for(std::size_t i = 0; i < vertices.size(); i++) {
             unsigned int vertex = vertices[i];
             RemovedVertexInfo dat = this->remove_vertex(vertex);
@@ -396,26 +394,37 @@ namespace PointLocation {
         fmt::v8::ostream file = fmt::output_file(base_filename + ".gi");
         const unsigned int VERTICES = planar_graph->vertices.size();
         file.print("{}\n", VERTICES);
+        unsigned int NOT_REMOVED = 0;
+        const Vertex* VERTICES_PTR = this->planar_graph->vertices.data();
         for (unsigned int i = 0; i < VERTICES; i++) {
-            const Vertex& vertex = this->planar_graph->vertices[i];
-            file.print("{} {} {} {} {} {}\n", i, vertex.removed, vertex.point.x, vertex.point.y, vertex.triangles.size(), planar_graph->adjacency_list[i].size());
+            const Vertex& vertex = *VERTICES_PTR++;
+            file.print("{} {} {}", vertex.removed, vertex.point.x, vertex.point.y);
             if (!vertex.removed) {
+                NOT_REMOVED++;
+                file.print(" {} {}", vertex.triangles.size(), planar_graph->adjacency_list[i].size());
+            }
+            file.print("\n");
+        }
+        file.print("{}\n", NOT_REMOVED);
+        VERTICES_PTR = this->planar_graph->vertices.data();
+        for (unsigned int i = 0; i < VERTICES; i++) {
+            const Vertex& vertex = *VERTICES_PTR++;
+            if (!vertex.removed) {
+                file.print("{}", i);
                 for (unsigned int tri : vertex.triangles) {
                     file.print(" {}", tri);
                 }
-                file.print("\n");
                 for (unsigned int adj : planar_graph->adjacency_list[i]) {
                     file.print(" {}", adj);
                 }
                 file.print("\n");
             }
         }
-        
         const unsigned int TRIANGLES = planar_graph->all_triangles.size();
         file.print("{}\n", TRIANGLES);
         for (unsigned int i = 0; i < TRIANGLES; i++) {
             const Triangle& tri = planar_graph->all_triangles[i];
-            file.print("{} {} {} {}\n", i, tri.vertex_one, tri.vertex_two, tri.vertex_three);
+            file.print("{} {} {}\n", tri.vertex_one, tri.vertex_two, tri.vertex_three);
         }
         file.print("{}\n", planar_graph->triangulations.size());
         for (std::size_t i = 0; i < planar_graph->triangulations.size(); i++) {
@@ -434,6 +443,10 @@ namespace PointLocation {
                 file.print(" {}", neigh);
             }
             file.print("\n");
+        }
+        file.print("{}\n", triangle_map.size());
+        for (const std::pair<std::tuple<unsigned int, unsigned int, unsigned int>, unsigned int>& pair : triangle_map) {
+            file.print("{} {} {} {}\n", std::get<0>(pair.first), std::get<1>(pair.first), std::get<2>(pair.first), pair.second);
         }
         file.close();
     }
