@@ -3,7 +3,7 @@
 #ifndef POINT_LOCATION_HPP_
 #define POINT_LOCATION_HPP_
 
-#include "triangle.h"
+#include <triangle.h>
 #include <map>
 #include <unordered_map>
 #include <unordered_set>
@@ -12,6 +12,11 @@
 #include <memory>
 
 namespace PointLocation {
+    typedef double double64x2_t __attribute__((__vector_size__(16)));
+    typedef long int64x2_t __attribute__((__vector_size__(16)));
+    typedef short int16x2_t __attribute__((vector_size(4)));
+    bool overlaps(short start1, short end1, short start2, short end2);
+    bool overlaps(int16x2_t first, int16x2_t second);
     struct pair_hash {
         inline std::size_t operator()(const std::pair<unsigned int, unsigned int> & v) const {
             return ((unsigned long) v.first << 32) + v.second;
@@ -103,8 +108,6 @@ namespace PointLocation {
             return (!first.emplace(rhs.vertex_one).second) && (!first.emplace(rhs.vertex_two).second) && (!first.emplace(rhs.vertex_three).second);
         }
     };
-    typedef double double64x2_t __attribute__((__vector_size__(16)));
-    typedef long int64x2_t __attribute((__vector_size__(16)));
     struct Vertex {
         unsigned int id;
         struct Point {

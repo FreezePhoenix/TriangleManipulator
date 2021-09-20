@@ -8,6 +8,16 @@
 // template class std::vector<PointLocation::Line>;
 
 namespace PointLocation {
+    bool overlaps(short start1, short end1, short start2, short end2) {
+        start1 = std::min(start1, end1);
+        end1 = std::max(start1, end1);
+        start2 = std::min(start2, end2);
+        end2 = std::max(start2, end2);
+        if ((start1 - end2) * (end1 - start2) <= 0) {
+            return true;
+        }
+        return false;
+    };
     DirectedAcyclicGraph::DirectedAcyclicGraph() {
         this->_root = 0;
         this->graph = std::unordered_map<unsigned int, std::unordered_set<unsigned int>>();
