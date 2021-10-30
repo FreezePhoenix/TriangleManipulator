@@ -1,6 +1,6 @@
-#include "PointLocation.hpp"
-#include "ShapeManipulator.hpp"
-#include "TriangleManipulator.hpp"
+#include "TriangleManipulator/PointLocation.hpp"
+#include "TriangleManipulator/ShapeManipulator.hpp"
+#include "TriangleManipulator/TriangleManipulator.hpp"
 #include "earcut.hpp"
 #include "fmt/os.h"
 

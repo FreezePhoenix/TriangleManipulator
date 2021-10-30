@@ -24,8 +24,10 @@ namespace TriangleManipulator {
         res->trianglelist = nullptr;
         res->triangleattributelist = nullptr;
         res->neighborlist = nullptr;
+        res->subdomainlist = nullptr;
         res->numberoftriangles = 0;
         res->numberofcorners = 0;
+        res->numberofsubdomains = 0;
         res->numberoftriangleattributes = 0;
         
         res->segmentlist = nullptr;
@@ -144,6 +146,7 @@ namespace TriangleManipulator {
     void write_ele_file(std::string filename, std::shared_ptr<triangulateio> out);
     void read_ele_file(std::string filename, std::shared_ptr<triangulateio> in);
     void write_neigh_file(std::string filename, std::shared_ptr<triangulateio> out);
+    void write_part_file(std::string filename, std::shared_ptr<triangulateio> out);
 }
 
 #endif /* TRIANGLEMANIPULATOR_HPP_ */

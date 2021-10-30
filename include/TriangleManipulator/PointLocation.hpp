@@ -10,6 +10,7 @@
 #include <vector>
 #include <set>
 #include <memory>
+#include <cmath>
 
 namespace PointLocation {
     typedef double double64x2_t __attribute__((__vector_size__(16)));
@@ -33,6 +34,14 @@ namespace PointLocation {
         unsigned int hash;
         bool operator==(const Point& other) {
             return other.hash == this->hash;
+        }
+        inline double angle(const Point& p2) {
+            double xDiff = p2.x - x;
+            double yDiff = p2.y - y;
+            return std::atan2(yDiff, xDiff);
+        }
+        inline double distance(const Point& p2) {
+            return std::sqrt(std::pow(p2.x - x, 2) + std::pow(p2.y - y, 2));
         }
     };
     struct PointHash {

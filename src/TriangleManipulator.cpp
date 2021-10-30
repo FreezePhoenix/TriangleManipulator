@@ -1,7 +1,8 @@
 #include <stdio.h>
 
-#include "TriangleManipulatorTemplates.hpp"
+#include "TriangleManipulator/TriangleManipulatorTemplates.hpp"
 #include <fmt/compile.h>
+#include <experimental/array>
 
 namespace TriangleManipulator {
     /**
@@ -25,17 +26,17 @@ namespace TriangleManipulator {
     void filter_points(std::shared_ptr<triangulateio> input, std::shared_ptr<triangulateio> output, std::function<bool(int, REAL, REAL, REAL)> predicate) {
         int points_found = 0;
         std::vector<int> found_points = std::vector<int>();
-        int points = input->numberofpoints;
-        int attributes = input->numberofpointattributes;
+        unsigned int points = input->numberofpoints;
+        unsigned int attributes = input->numberofpointattributes;
         bool markers = input->pointmarkerlist != nullptr;
         REAL* input_point_ptr = input->pointlist.get();
         REAL* input_point_attribute_ptr = input->pointattributelist.get();
         int* input_point_marker_ptr = input->pointmarkerlist.get();
-        for (int i = 0; i < points; i++) {
+        for (unsigned int i = 0; i < points; i++) {
             double x = input_point_ptr[2 * i];
             double y = input_point_ptr[2 * i + 1];
             if(attributes) {
-                for(int j = 0; j < attributes; j++) {
+                for(unsigned int j = 0; j < attributes; j++) {
                     double attr = input_point_attribute_ptr[attributes * i + j];
                     if(predicate(i, x, y, attr)) {
                         found_points.push_back(i);
@@ -98,7 +99,7 @@ namespace TriangleManipulator {
         REAL* point_ptr = in->pointlist.get();
         REAL* point_attribute_ptr = in->pointattributelist.get();
         int* point_marker_ptr = in->pointmarkerlist.get();
-        for (int i = 0; i < points; i++) {
+        for (unsigned int i = 0; i < points; i++) {
             std::vector<REAL> point = read_line<REAL>(file);
             if(points > 0 && in->numberofpoints != 0) {
                 int attributes = in->numberofpointattributes;
@@ -127,15 +128,24 @@ namespace TriangleManipulator {
         const double* attributes_ptr = out->pointattributelist.get();
         const int* marker_ptr = out->pointmarkerlist.get();
         file.print("{} 2 {} {}", points, points_attributes, markers);
-        for (unsigned int i = 0; i < points; i++) {
-            const double p1 = *points_ptr++;
-            const double p2 = *points_ptr++;
-            file.print("\n{} {} {}", i, p1, p2);
-            for (unsigned int j = 0; j < points_attributes; j++) {
-                file.print(" {}", *attributes_ptr++);
-            }
-            if (markers) {
+        if (markers) {
+            for (unsigned int i = 0; i < points; i++) {
+                const double p1 = *points_ptr++;
+                const double p2 = *points_ptr++;
+                file.print("\n{} {} {}", i, p1, p2);
+                for (unsigned int j = 0; j < points_attributes; j++) {
+                    file.print(" {}", *attributes_ptr++);
+                }
                 file.print(" {}", *marker_ptr++);
+            }
+        } else {
+            for (unsigned int i = 0; i < points; i++) {
+                const double p1 = *points_ptr++;
+                const double p2 = *points_ptr++;
+                file.print("\n{} {} {}", i, p1, p2);
+                for (unsigned int j = 0; j < points_attributes; j++) {
+                    file.print(" {}", *attributes_ptr++);
+                }
             }
         }
     }
@@ -220,9 +230,10 @@ namespace TriangleManipulator {
         for (unsigned int i = 0; i < segments; i++) {
             const int s1 = *segments_ptr++;
             const int s2 = *segments_ptr++;
-            file.print("\n{} {} {}", i, s1, s2);
             if (markers) {
-                file.print(" {}", markers_ptr[i]);
+                file.print("\n{} {} {} {}",  i, s1, s2, markers_ptr[i]);
+            } else {
+                file.print("\n{} {} {}", i, s1, s2);
             }
         }
         const unsigned int holes = out->numberofholes;
@@ -253,11 +264,15 @@ namespace TriangleManipulator {
         for (unsigned int i = 0; i < edges; i++) {
             int p1 = *edges_ptr++;
             int p2 = *edges_ptr++;
-            file.print("\n{} {} {}", i, p1, p2);
             if (p2 == -1) {
-                file.print(" {} {}", norms_ptr[i * 2], norms_ptr[i * 2 + 1]);
-            } else if (markers) {
-                file.print(" {}", markers_ptr[i]);
+                file.print("\n{} {} {} {} {}", i, p1, p2, norms_ptr[i * 2], norms_ptr[i * 2 + 1]);
+            } else {
+                if (markers) {
+                    file.print("\n {} {} {} {}", i, p1, p2, markers_ptr[i]);
+                } else {
+                    
+                    file.print("\n {} {} {}", i, p1, p2);
+                }
             }
         }
         file.close();
@@ -310,6 +325,17 @@ namespace TriangleManipulator {
         file.print("{} 3\n", triangles);
         for (unsigned int i = 0; i < triangles; i++) {
             file.print("{} {} {} {}\n", i, neighbors_ptr[3 * i], neighbors_ptr[3 * i + 1], neighbors_ptr[3 * i + 2]);
+        }
+        file.close();
+    }
+
+    void write_part_file(std::string filename, std::shared_ptr<triangulateio> out) {
+        fmt::v8::ostream file = fmt::output_file(filename.c_str());
+        const unsigned int triangles = out->numberoftriangles;
+        const int* subdomain_ptr = out->subdomainlist.get();
+        file.print("{} {}\n", triangles, out->numberofsubdomains);
+        for (unsigned int i = 0; i < triangles; i++) {
+            file.print("{} {}\n", i, *subdomain_ptr++);
         }
         file.close();
     }

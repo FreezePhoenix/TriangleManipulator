@@ -1,5 +1,6 @@
-#include "ShapeManipulator.hpp"
-#include "TriangleManipulator.hpp"
+#include "TriangleManipulator/ShapeManipulator.hpp"
+#include "TriangleManipulator/TriangleManipulator.hpp"
+#include <iostream>
 template class std::vector<std::vector<PointLocation::Line>*>;
 
 namespace ShapeManipulator {
@@ -14,26 +15,38 @@ namespace ShapeManipulator {
     std::shared_ptr<std::vector<double>> find_points_inside(std::shared_ptr<triangulateio> triangle_object) {
         std::shared_ptr<triangulateio> input = std::shared_ptr<triangulateio>(new triangulateio(*triangle_object));
         std::shared_ptr<std::vector<double>> holes = std::shared_ptr<std::vector<double>>(new std::vector<double>());
+        std::shared_ptr<std::vector<double>> new_holes = std::shared_ptr<std::vector<double>>(new std::vector<double>());
         std::shared_ptr<triangulateio> triangle_vobject = TriangleManipulator::create_instance();
         std::shared_ptr<triangulateio> _output = TriangleManipulator::create_instance();
-        
-        triangulate("pvzjiPEQDBNq", input, _output, triangle_vobject);
+        double* holeptr = triangle_object->holelist.get();
+        int starting_holes = triangle_object->numberofholes;
+        for (size_t i = 0; i < triangle_object->numberofholes; i++) {
+            holes->push_back(holeptr[i * 2]);
+            holes->push_back(holeptr[i * 2 + 1]);
+        }
+        triangulate("pvzXEQD", input, _output, triangle_vobject);
         int iteration = 0;
         do {
             if (triangle_vobject->numberofpoints < 1) {
                 break;
             }
+            
             iteration++;
             double x = triangle_vobject->pointlist.get()[0];
             double y = triangle_vobject->pointlist.get()[1];
             holes->reserve(holes->size() + 2);
+            new_holes->reserve(new_holes->size() + 2);
             holes->push_back(x);
             holes->push_back(y);
-            input->numberofholes = iteration;
+            new_holes->push_back(x);
+            new_holes->push_back(y);
+            input = _output;
+            input->numberofholes = iteration + starting_holes;
             input->holelist = std::shared_ptr<double>(holes->data(), [](void*) {});
-            triangulate("pvzjPEQDBNq", input, _output, triangle_vobject);
+            triangulate("pvzXEQD", input, _output, triangle_vobject);
+            TriangleManipulator::write_poly_file("Maps/abtesting.object.1." + std::to_string(iteration) + ".poly", input);
         } while(triangle_vobject->numberofpoints != 0);
-        return holes;
+        return new_holes;
     }
     void from_list(const std::vector<PointLocation::Line>& list, std::shared_ptr<triangulateio> output) {
         std::unordered_map<unsigned int, unsigned short> points = std::unordered_map<unsigned int, unsigned short>();

@@ -3,7 +3,7 @@
 #ifndef TRIANGLEMANIPULATORTEMPLATES_HPP_
 #define TRIANGLEMANIPULATORTEMPLATES_HPP_
 
-#include "TriangleManipulator.hpp"
+#include "TriangleManipulator/TriangleManipulator.hpp"
 
 namespace TriangleManipulator {
     template <>

@@ -1,28 +1,49 @@
-#include "TriangleManipulator.hpp"
-#include "PointLocation.hpp"
+#include "TriangleManipulator/TriangleManipulator.hpp"
+#include "TriangleManipulator/PointLocation.hpp"
 #include <iostream>
 #include <math.h>
+#include <vector>
 #include "fmt/os.h"
+typedef std::tuple<unsigned int, int, short, short> TYPES;
 
-typedef float float32x4_t __attribute__ ((__vector_size__ (16)));
+template<size_t TYPE = 0>
+struct Message {
+    std::tuple_element<TYPE, TYPES>::type* argument;
+    const size_t type = TYPE;
+};
+
+template<size_t TYPE>
+void print_message(Message<TYPE>* arg);
+
+template<>
+void print_message<0>(Message<0>* arg) {
+    fmt::print("{} Huh?\n", *arg->argument);
+}
+
+template<>
+void print_message<1>(Message<1>* arg) {
+    fmt::print("HAH {}\n", *arg->argument);
+}
+
+template<>
+void print_message<2>(Message<2>* arg) {
+    fmt::print("{} HAH\n", *arg->argument);
+}
+
+decltype(print_message<0>)* FUNCTIONS[3] = { &print_message<0>, (decltype(print_message<0>)*) &print_message<1>, (decltype(print_message<0>)*) &print_message<2> };
+
+template<size_t TYPE = 0>
+struct MaybeMaybeMaybe {
+    constexpr static decltype(print_message<TYPE>)* func = &print_message<TYPE>;
+};
+
+typedef float float32x4_t __attribute__((__vector_size__(16)));
 void test() {
-    std::shared_ptr<triangulateio> test = TriangleManipulator::create_instance();
-    TriangleManipulator::read_poly_file("test.poly", test);
-    TriangleManipulator::read_ele_file("test.ele", test);
-    TriangleManipulator::write_poly_file("testa.poly", test);
-    PointLocation::GraphInfo info = PointLocation::create_graph(test);
-    std::shared_ptr<triangulateio> other = TriangleManipulator::create_instance();
-    info.process();
-    TriangleManipulator::read_ele_file("test.ele", other);
-    info.map_triangles(other);
-    info.write_to_file("Planar");
-    int a = info.locate_point(PointLocation::Vertex::Point{ 44, -28 });
-    PointLocation::Triangle& b = info.planar_graph->all_triangles[a];
-    std::cout << a << std::endl;
-    // info.planar_graph->write_to_file("Planar");
-    // PointLocation::PlanarGraph* graphh = PointLocation::PlanarGraph::from_file("Planar");
-    // std::cout << graphh->all_triangles[2].vertex_three << std::endl;
-    // std::cout << sizeof(int) << "," << sizeof(int[graphh->all_triangles[2].vertex_three]) << std::endl;
+    int c = 5;
+    // decltype(print_message<1>) a;
+    Message<1> a = Message<1>(&c);
+    Message<>* D = (Message<>*) & a;
+    FUNCTIONS[0](D);
 }
 int main() {
     test();

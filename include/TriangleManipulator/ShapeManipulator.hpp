@@ -3,7 +3,7 @@
 #ifndef SHAPEMANIPULATOR_HPP_
 #define SHAPEMANIPULATOR_HPP_
 
-#include "PointLocation.hpp"
+#include "TriangleManipulator/PointLocation.hpp"
 #include <functional>
 #include <memory>
 #include <map>
