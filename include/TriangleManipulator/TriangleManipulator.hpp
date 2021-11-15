@@ -134,19 +134,30 @@ namespace TriangleManipulator {
         std::istringstream new_stream = std::istringstream(str);
         return { read_var<Args>(new_stream)... };
     }
-    // template std::tuple<unsigned int, unsigned int, unsigned int, bool> read_many<unsigned int, unsigned int, unsigned int, bool>(std::istream& stream);
-    void print_vector(std::vector<float>& vec);
-    void read_node_section(std::istream& file, std::shared_ptr<triangulateio> in);
-    void write_node_section(fmt::v8::ostream& file, std::shared_ptr<triangulateio> out);
+    
+    // Standard text output, compatible with Showme
     void read_node_file(std::string filename, std::shared_ptr<triangulateio> in);
-    void read_poly_file(std::string filename, std::shared_ptr<triangulateio> in);
     void write_node_file(std::string filename, std::shared_ptr<triangulateio> out);
+
+    void read_poly_file(std::string filename, std::shared_ptr<triangulateio> in);
     void write_poly_file(std::string filename, std::shared_ptr<triangulateio> out);
-    void write_edge_file(std::string filename, std::shared_ptr<triangulateio> out);
-    void write_ele_file(std::string filename, std::shared_ptr<triangulateio> out);
+    
     void read_ele_file(std::string filename, std::shared_ptr<triangulateio> in);
+    void write_ele_file(std::string filename, std::shared_ptr<triangulateio> out);
+
+    void write_edge_file(std::string filename, std::shared_ptr<triangulateio> out);
     void write_neigh_file(std::string filename, std::shared_ptr<triangulateio> out);
     void write_part_file(std::string filename, std::shared_ptr<triangulateio> out);
+
+    // Binary output. Designed to be robust, and compact.
+    void write_node_file_binary(std::string filename, std::shared_ptr<triangulateio> out);
+    void read_node_file_binary(std::string filename, std::shared_ptr<triangulateio> in);
+
+    void write_poly_file_binary(std::string filename, std::shared_ptr<triangulateio> out);
+    void read_poly_file_binary(std::string filename, std::shared_ptr<triangulateio> in);
+
+    void read_ele_file_binary(std::string filename, std::shared_ptr<triangulateio> in);
+    void write_ele_file_binary(std::string filename, std::shared_ptr<triangulateio> out);
 }
 
 #endif /* TRIANGLEMANIPULATOR_HPP_ */

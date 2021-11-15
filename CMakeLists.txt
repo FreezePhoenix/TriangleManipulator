@@ -2,7 +2,7 @@
 # project specific logic here.
 #
 cmake_minimum_required (VERSION 3.5)
-add_definitions(-std=c++20 -O3 -Wall)
+add_definitions(-std=c++20 -O3 -Wall -g)
 project("TriangleManipulator")
 
 add_library(TriangleManipulator_HEADERS INTERFACE)
@@ -26,4 +26,3 @@ add_subdirectory(lib/triangle lib/triangle EXCLUDE_FROM_ALL)
 add_subdirectory(lib/fmt lib/fmt EXCLUDE_FROM_ALL)
 
 target_link_libraries(TriangleManipulator TriangleManipulator_HEADERS Triangle fmt)
-target_link_libraries(TriangleManipulatorExecutable TriangleManipulator)

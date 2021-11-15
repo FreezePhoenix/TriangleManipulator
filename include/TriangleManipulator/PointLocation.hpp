@@ -118,7 +118,7 @@ namespace PointLocation {
         }
     };
     struct Vertex {
-        unsigned int id;
+        std::unordered_set<unsigned int> triangles;
         struct Point {
             double x;
             double y;
@@ -127,15 +127,14 @@ namespace PointLocation {
             Point point;
             double64x2_t matrix;
         };
-        Vertex(double x, double y);
-        std::unordered_set<unsigned int> triangles;
+        unsigned int id;
         bool removed = false;
+        Vertex(double x, double y);
         void add_triangle(unsigned int triangle_id);
         void remove_triangle(unsigned int triangle_id);
     };
-
     struct RemovedVertexInfo {
-        std::unordered_set<unsigned int> old_triangle_ids;
+        std::vector<unsigned int> old_triangle_ids;
         // Array of point ID's
         std::vector<unsigned int> polygon;
     };
@@ -172,9 +171,8 @@ namespace PointLocation {
             void connect_vertices(unsigned int first_vertex, unsigned int second_vertex);
             RemovedVertexInfo remove_vertex(unsigned int vertex_id);
             std::vector<unsigned int> find_independant_set(); 
-            std::vector<Triangle> get_triangulation(const std::vector<unsigned int>& polygon, std::vector<unsigned int>* hole);
-            std::set<unsigned int> triangulate_polygon(const std::vector<unsigned int>& polygon, std::vector<unsigned int>* hole);
-            std::set<unsigned int> triangulate_polygon(const std::vector<unsigned int>& polygon);
+            std::vector<Triangle> get_triangulation(const std::vector<unsigned int>& polygon);
+            std::vector<unsigned int> triangulate_polygon(const std::vector<unsigned int>& polygon);
             void remove_vertices(std::vector<unsigned int> vertices, std::shared_ptr<DirectedAcyclicGraph> dag);
             bool triangles_intersect(unsigned int first, unsigned int second);
     };
