@@ -26,3 +26,4 @@ add_subdirectory(lib/triangle lib/triangle EXCLUDE_FROM_ALL)
 add_subdirectory(lib/fmt lib/fmt EXCLUDE_FROM_ALL)
 
 target_link_libraries(TriangleManipulator TriangleManipulator_HEADERS Triangle fmt)
+target_link_libraries(TriangleManipulatorExecutable TriangleManipulator)
