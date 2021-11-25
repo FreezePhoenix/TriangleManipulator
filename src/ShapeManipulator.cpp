@@ -54,7 +54,7 @@ namespace ShapeManipulator {
         output->segmentlist = trimalloc<int>(output->numberofsegments * 2);
         output->segmentmarkerlist = trimalloc<int>(output->numberofsegments);
         int point_count = 0;
-        std::unordered_set<unsigned int> points_set = std::unordered_set<unsigned int>();
+        std::unordered_set<int> points_set = std::unordered_set<int>();
         points_set.reserve(list.size() * 2);
         for(const PointLocation::Line& line : list) {
             points_set.insert(line.first.hash).second && point_count++;
@@ -70,6 +70,8 @@ namespace ShapeManipulator {
         int* output_point_marker_ptr = output->pointmarkerlist.get();
         int* output_segment_ptr = output->segmentlist.get();
         int* output_segment_marker_ptr = output->segmentmarkerlist.get();
+        std::memset(output_point_marker_ptr, 1, sizeof(int) * point_count);
+        std::memset(output_segment_marker_ptr, 1, sizeof(int) * point_count);
         for (const PointLocation::Line& line : list) {
             const PointLocation::Point& first = line.first;
             const PointLocation::Point& second = line.second;
@@ -77,19 +79,16 @@ namespace ShapeManipulator {
             if(first_find == points.end()) {
                 output_point_ptr[point_index * 2] = first.x;
                 output_point_ptr[point_index * 2 + 1] = first.y;
-                output_point_marker_ptr[point_index] = 1;
                 first_find = points.emplace(first.hash, point_index++).first;
             }
             std::unordered_map<unsigned int, unsigned short>::iterator second_find = points.find(second.hash);
             if(second_find == points.end()) {
                 output_point_ptr[point_index * 2] = second.x;
                 output_point_ptr[point_index * 2 + 1] = second.y;
-                output_point_marker_ptr[point_index] = 1;
                 second_find = points.emplace(second.hash, point_index++).first;
             }
             output_segment_ptr[segment_index * 2] = first_find->second;
             output_segment_ptr[segment_index * 2 + 1] = second_find->second;
-            output_segment_marker_ptr[segment_index] = 1;
             segment_index++;
         }
     }

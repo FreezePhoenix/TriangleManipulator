@@ -1,252 +1,10 @@
 #include <stdio.h>
 
 #include "TriangleManipulator/TriangleManipulatorTemplates.hpp"
-#include <fmt/compile.h>
-#include <experimental/array>
 #include <new>
 
 namespace TriangleManipulator {
-/**
- * @brief A class to write binary data to files.
- * 
- * Setting compact mode to true will not give large benefits in file size. If you are writing types with sizes that are powers of 2, and the LCM and GCF of their alignments are the same, then enabling compact mode will net you nothing.
- * If you are writing a large object, and there isn't enough space left in the buffer, the entire buffer is flushed, including any remaining space. This encourages you to write the data in as low a level as you can, preferably integers,
- * doubles, shorts, or chars at a time. Note: Since there is no overload for writing a boolean, you are expected to write them as either entire chars or pack them into chars yourself.
- *
- * @tparam compact Whether or not the file should be written in compact mode. Expect lower performance with compact mode enabled, but the resulting file will be smaller (or the same size). Files must be read in the same mode as they were written.
- * @tparam buffer_size The size of the internal buffer. An object can only be written if it's size is smaller than the buffer.
- */
 
-template<bool compact = false, size_t buffer_size = 2048, std::enable_if_t<0 == (buffer_size & (buffer_size - 1)), bool> = true>
-class binary_writer {
-    private:
-        char buffer[buffer_size] __attribute__ ((aligned));
-        FILE* file;
-        void* head;
-        std::size_t remaining;
-    public:
-        /**
-         * @brief Construct a new binary writer object
-         * 
-         * @param filename 
-         */
-        binary_writer(const char* filename): buffer() {
-            head = buffer;
-            remaining = buffer_size;
-            file = fopen(filename, "w");
-            std::memset(buffer, 0, buffer_size);
-        };
-        /**
-         * @brief Write the buffer to file, and clear it.
-         */
-        inline void flush() {
-            head = buffer;
-            fwrite(buffer, sizeof(char), buffer_size - remaining, file);
-            std::memset(buffer, 0, buffer_size - remaining);
-            remaining = buffer_size;
-        }
-        /**
-         * @brief Write a value to file. Note: Uses copy constructor. Should only be used with Primitives and POD structures.
-         * 
-         * @tparam T The type of the value to write. You probably don't need to set this.
-         * @tparam alignment The alignment to write with. You almost always won't need to set this.
-         */
-        template<typename T, size_t alignment = compact ? 1 : alignof(T), std::enable_if_t<!std::is_pointer_v<T> && buffer_size >= sizeof(T) && 0 == (alignment & (alignment - 1)), bool> = true>
-        inline void write(T arg) {
-            std::align(alignment, 0, head, remaining);
-            if (remaining < sizeof(T)) {
-                flush();
-            }
-            memcpy(head, (void*)&arg, sizeof(T));
-            head = (char*) head + sizeof(T);
-            remaining -= sizeof(T);
-        }
-        /**
-         * @brief Write what's at a pointer to file. Note: Does not use copy constructor. Should only be used with Primitives and POD structures.
-         * 
-         * @tparam T The type of the value to write. You probably don't need to set this.
-         * @tparam alignment The alignment to write with. You almost always won't need to set this.
-         */
-        template<typename T, size_t alignment = compact ? 1 : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && 0 == (alignment & (alignment - 1)), bool> = true>
-        inline void write(T* arg) {
-            std::align(alignment, 0, head, remaining);
-            if (remaining < sizeof(T)) {
-                flush();
-            }
-            memcpy(head, (void*) arg, sizeof(T));
-            head = (char*) head + sizeof(T);
-            remaining -= sizeof(T);
-        }
-        template<typename T, size_t alignment = compact ? 1 : alignof(T), size_t block_size = buffer_size / sizeof(T), std::enable_if_t<buffer_size >= sizeof(T) && 0 == (alignment & (alignment - 1)), bool> = true>
-        inline void write_block(T* arg) {
-            memcpy(head, (void*) arg, buffer_size);
-            head = (char*) head + buffer_size;
-            remaining -= buffer_size;
-        }
-        template<typename T, size_t alignment = compact ? 1 : alignof(T), size_t block_size = buffer_size / sizeof(T), std::enable_if_t<buffer_size >= sizeof(T) && 0 == (alignment & (alignment - 1)), bool> = true>
-        inline void write_array(T* arg, size_t size) {
-            std::align(alignment, 0, head, remaining);
-            size_t first = std::min(remaining / sizeof(T), size);
-            memcpy(head, (void*)arg, sizeof(T) * first);
-            head = (char*) head + sizeof(T) * first;
-            remaining -= sizeof(T) * first;
-            arg += first;
-            size -= first;
-            if (size > 0) {
-                flush();
-                while (size >= block_size) {
-                    write_block(arg);
-                    flush();
-                    arg += block_size;
-                    size -= block_size;
-                }
-                if (size > 0) {
-                    std::align(alignment, 0, head, remaining);
-                    memcpy(head, (void*)arg, sizeof(T) * size);
-                    head = (char*)head + sizeof(T) * size;
-                    remaining -= sizeof(T) * size;
-                }
-            }
-        }
-        /**
-         * @brief Close the file. Flushes it, and invalidates the writer. Does not automatically cleanup the buffer.
-         * 
-         */
-        void close() {
-            flush();
-            fclose(file);
-            head = nullptr;
-            remaining = 0;
-        }
-};
-/**
- * @brief A class to read files written using binary_writer.
- * 
- * @tparam compact Whether or not the file should be read in compact mode. Expect lower performance with compact mode enabled, but the resulting file will be smaller. Files must be read in the same mode as they were written.
- * @tparam buffer_size The size of the internal buffer. An object can only be written if it's size is smaller than the buffer.
- */
-template<bool compact = false, size_t buffer_size = 2048, std::enable_if_t<0 == (buffer_size & (buffer_size - 1)), bool> = true>
-class binary_reader {
-    private:
-        char buffer[buffer_size] __attribute__ ((aligned));;
-        FILE* file;
-        void* head;
-        std::size_t remaining;
-        /**
-         * @brief Flush the buffer, keeping the remaining portions of the data if the need arises.
-         * 
-         */
-        inline void flush() {
-            if (remaining > 0) {
-                std::memcpy(buffer, head, remaining);
-            }
-            head = buffer;
-            fread(buffer + remaining, sizeof(char), buffer_size - remaining, file);
-            remaining = buffer_size;
-        }
-    public:
-        /**
-         * @brief Construct a new binary reader object
-         * 
-         * @param filename 
-         */
-        binary_reader(const char* filename) {
-            head = buffer;
-            remaining = 0;
-            file = fopen(filename, "rb");
-            flush();
-        };
-        /**
-         * @brief Read a value from file. Assigns the value to the reference argument. Should only be used with Primitives and POD structures.
-         * 
-         * @tparam T The type of the value to read. You probably don't need to set this.
-         * @tparam alignment The alignment to read with. You almost always won't need to set this.
-         */
-        template<typename T, size_t alignment = compact ? 1 : alignof(T), std::enable_if_t<!std::is_pointer_v<T> && buffer_size >= sizeof(T) && 0 == (alignment & (alignment - 1)), bool> = true>
-        inline void read(T& arg) {
-            std::align(alignment, 0, head, remaining);
-            if (remaining < sizeof(T)) {
-                flush();
-            }
-            const T& res = *reinterpret_cast<T*>(head);
-            head = (char*) head + sizeof(T);
-            remaining -= sizeof(T);
-            arg = res;
-        };
-        /**
-         * @brief Read a value from file. Directly assigns the value to the pointer argument. Should only be used with Primitives and POD structures.
-         * 
-         * @tparam T The type of the value to read. You probably don't need to set this.
-         * @tparam alignment The alignment to read with. You almost always won't need to set this.
-         */
-        template<typename T, size_t alignment = compact ? 1 : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && 0 == (alignment & (alignment - 1)), bool> = true>
-        inline void read(T* arg) {
-            std::align(alignment, 0, head, remaining);
-            if (remaining < sizeof(T)) {
-                flush();
-            }
-            std::memcpy(arg, head, sizeof(T));
-            head = (char*)head + sizeof(T);
-            remaining -= sizeof(T);
-        };
-        /**
-         * @brief Read a value from file. Returns the value. Should only be used with Primitives and POD structures.
-         * 
-         * @tparam T The type of the value to read. You probably don't need to set this.
-         * @tparam alignment The alignment to read with. You almost always won't need to set this.
-         */
-        template<typename T, size_t alignment = compact ? 1 : alignof(T), std::enable_if_t<!std::is_pointer_v<T> && buffer_size >= sizeof(T) && 0 == (alignment & (alignment - 1)), bool> = true>
-        inline T read() {
-            std::align(alignment, 0, head, remaining);
-            if (remaining < sizeof(T)) {
-                flush();
-            }
-            const T& res = *reinterpret_cast<T*>(head);
-            head = (char*) head + sizeof(T);
-            remaining -= sizeof(T);
-            return res;
-        }
-        template<typename T, size_t alignment = compact ? 1 : alignof(T), size_t block_size = buffer_size / sizeof(T), std::enable_if_t<buffer_size >= sizeof(T) && 0 == (alignment & (alignment - 1)), bool> = true>
-        inline void read_block(T* arg) {
-            memcpy(arg, head, buffer_size);
-            head = (char*) head + buffer_size;
-            remaining = 0;
-        }
-        template<typename T, size_t alignment = compact ? 1 : alignof(T), size_t block_size = buffer_size / sizeof(T), std::enable_if_t<buffer_size >= sizeof(T) && 0 == (alignment & (alignment - 1)), bool> = true>
-        inline void read_array(T* arg, size_t size) {
-            std::align(alignment, 0, head, remaining);
-            size_t first = std::min(remaining / sizeof(T), size);
-            memcpy(arg, head, sizeof(T) * first);
-            head = (char*) head + sizeof(T) * first;
-            remaining -= sizeof(T) * first;
-            arg += first;
-            size -= first;
-            if (size > 0) {
-                flush();
-                while (size >= block_size) {
-                    read_block(arg);
-                    flush();
-                    arg += block_size;
-                    size -= block_size;
-                }
-                if (size > 0) {
-                    std::align(alignment, 0, head, remaining);
-                    memcpy(arg, head, sizeof(T) * size);
-                    head = (char*)head + sizeof(T) * size;
-                    remaining -= sizeof(T) * size;
-                }
-            }
-        }
-        /**
-         * @brief Close the file. Invalidates the reader. Does not automatically cleanup the buffer.
-         * 
-         */
-        void close() {
-            fclose(file);
-            head = nullptr;
-            remaining = 0;
-        }
-};
     /**
      * @brief Injects points from one triangulate into the hole slots of another.
      * 
@@ -416,25 +174,27 @@ class binary_reader {
         file.close();
     }
 
-    void read_node_section_binary(binary_reader<>& reader, std::shared_ptr<triangulateio> in) {
-        const unsigned int points = reader.read<unsigned int>();
-        const unsigned int points_attributes = reader.read<unsigned int>();
-        const char markers = reader.read<char>();
-        if (points > 0 && in->numberofpoints == 0) {
-            in->numberofpoints = points;
-            in->numberofpointattributes = points_attributes;
+    inline void read_node_section_binary(binary_reader<>& reader, std::shared_ptr<triangulateio> in) {
+        const unsigned int points               = in->numberofpoints            = reader.read<unsigned int>();
+        const unsigned int points_attributes    = in->numberofpointattributes   = reader.read<unsigned int>();
+        const unsigned int markers                                              = reader.read<unsigned int>();
+        
+        if (points > 0) {
             in->pointlist = trimalloc<REAL>(points * 2);
-            in->pointattributelist = trimalloc<REAL>(points * points_attributes);
+            if (in->numberofpointattributes > 0) {
+                in->pointattributelist = trimalloc<REAL>(points * points_attributes);
+            }
             if(markers) {
                 in->pointmarkerlist = trimalloc<int>(points);
             }
         }
+        
         double* points_ptr = in->pointlist.get();
         double* attributes_ptr = in->pointattributelist.get();
         int* marker_ptr = in->pointmarkerlist.get();
+        
         if (points > 0) {
             reader.read_array(points_ptr, points * 2);
-            
             if (points_attributes > 0) {
                 reader.read_array(attributes_ptr, points * points_attributes);
             }
@@ -444,25 +204,30 @@ class binary_reader {
         }
     }
     
-    void write_node_section_binary(binary_writer<>& writer, std::shared_ptr<triangulateio> out) {
+    inline void write_node_section_binary(binary_writer<>& writer, std::shared_ptr<triangulateio> out) {
         const unsigned int points = out->numberofpoints;
         const unsigned int points_attributes = out->numberofpointattributes;
         const char node_markers = out->pointmarkerlist != nullptr;
         const double* points_ptr = out->pointlist.get();
         const double* attributes_ptr = out->pointattributelist.get();
         const int* marker_ptr = out->pointmarkerlist.get();
+        
         writer.write(points);
         writer.write(points_attributes);
         writer.write(node_markers);
+        
         if (points > 0) {
+            
             writer.write_array(points_ptr, points * 2);
             
             if (points_attributes > 0) {
                 writer.write_array(attributes_ptr, points * points_attributes);
             }
+            
             if (node_markers) {
                 writer.write_array(marker_ptr, points);
             }
+            
         }
     }
 
@@ -504,7 +269,7 @@ class binary_reader {
             // *segment_ptr++ = segment[2]; // Second point ID
             memcpy(segment_ptr + i * 2, segment.data() + 1, sizeof(unsigned int) * 2);
             if (markers) {
-                *segment_marker_ptr++ = 2; // segment[3]; // Marker
+                *segment_marker_ptr++ = segment[3];
             }
         }
         unsigned int holes = read_single<unsigned int>(file);
@@ -554,10 +319,10 @@ class binary_reader {
 
     void read_poly_file_binary(std::string filename, std::shared_ptr<triangulateio> in) {
         binary_reader<> reader = binary_reader<>(filename.c_str());
-        read_node_section_binary(reader, in);
         const unsigned int segments = reader.read<unsigned int>();
         const unsigned int holes = reader.read<unsigned int>();
         const unsigned int segment_markers = reader.read<unsigned int>();
+        read_node_section_binary(reader, in);
         
         in->numberofsegments = segments;
         in->segmentlist = trimalloc<int>(segments * 2);
@@ -586,28 +351,76 @@ class binary_reader {
     
     void write_poly_file_binary(std::string filename, std::shared_ptr<triangulateio> out) {
         binary_writer<> writer = binary_writer<>(filename.c_str());
-        write_node_section_binary(writer, out);
         const unsigned int segments = out->numberofsegments;
         const unsigned int markers  = out->segmentmarkerlist != nullptr;
+        const unsigned int holes = out->numberofholes;
         const int* segments_ptr = out->segmentlist.get();
         const int* markers_ptr = out->segmentmarkerlist.get();
-        const unsigned int holes = out->numberofholes;
         const REAL* holes_ptr = out->holelist.get();
+        
         writer.write(segments);
         writer.write(holes);
         writer.write(markers);
+
+        write_node_section_binary(writer, out);
+
         if (segments > 0) {
+            
             writer.write_array(segments_ptr, segments * 2);
             
             if (markers) {
                 writer.write_array(markers_ptr, segments);
             }
+            
         }
+        
         if (holes > 0) {
             writer.write_array(holes_ptr, holes * 2);
         }
         
         writer.close();
+    }
+
+    /**
+     * @brief Method to write a .edge file. There is no read for this, because triangulate doesn't read them.
+     * 
+     * @param filename 
+     * @param out 
+     */
+    void read_edge_file(std::string filename, std::shared_ptr<triangulateio> in) {
+        std::ifstream file(filename);
+        std::vector<unsigned int> header = read_line<unsigned int>(file);
+        in->numberofedges = header[0];
+        const int markers = header[1];
+        bool is_voronoi = false;
+        if (in->numberofedges > 0) {
+            in->edgelist = trimalloc<int>(in->numberofedges * 2);
+            double* norm_ptr;
+            int* edge_ptr = in->edgelist.get();
+            if (markers) {
+                in->edgemarkerlist = trimalloc<int>(in->numberofedges);
+            }
+            int* edge_marker_ptr = in->edgemarkerlist.get();
+            for (unsigned int i = 0; i < in->numberofedges; i++) {
+                std::vector<double> line = read_line<double>(file);
+                int p1 = edge_ptr[i * 2] = line[1];
+                int p2 = edge_ptr[i* 2 + 1] =line[2];
+                if (p2 == -1) {
+                    if (!is_voronoi) {
+                        in->normlist = trimalloc<double>(in->numberofedges * 2);
+                        norm_ptr = in->normlist.get();
+                        is_voronoi = true;
+                    }
+                    norm_ptr[i * 2] = line[3];
+                    norm_ptr[i * 2 + 1] = line[4];
+                } else {
+                    if (markers) {
+                        edge_marker_ptr[i] = line[3];
+                    }
+                }
+            }
+        }
+        file.close();
     }
 
     /**
@@ -639,6 +452,54 @@ class binary_reader {
             }
         }
         file.close();
+    }
+
+    void read_edge_file_binary(std::string filename, std::shared_ptr<triangulateio> in) {
+        binary_reader<> reader = binary_reader<>(filename.c_str());
+        const unsigned int edges = reader.read<unsigned int>();
+        const char markers = reader.read<char>();
+        const char voronoi = reader.read<char>();
+        in->numberofedges = edges;
+        in->edgelist = trimalloc<int>(in->numberofedges * 2);
+        int* edge_ptr = in->edgelist.get();
+        if (voronoi) {
+            in->normlist = trimalloc<double>(in->numberofedges * 2);
+        } else if (markers) {
+            in->edgemarkerlist = trimalloc<int>(in->numberofedges);
+        }
+        double* norm_ptr = in->normlist.get();
+        int* marker_ptr = in->edgemarkerlist.get();
+        if (edges > 0) {
+            reader.read_array(edge_ptr, edges * 2);
+            if (voronoi) {
+                reader.read_array(norm_ptr, edges * 2);
+            } else if (markers) {
+                reader.read_array(marker_ptr, edges);
+            }
+        }
+        reader.close();
+    }
+    
+    void write_edge_file_binary(std::string filename, std::shared_ptr<triangulateio> out) {
+        binary_writer<> writer = binary_writer<>(filename.c_str());
+        const unsigned int edges = out->numberofedges;
+        const char markers = out->edgemarkerlist != nullptr;
+        const char voronoi = out->normlist != nullptr;
+        const int* edges_ptr = out->edgelist.get();
+        const REAL* norms_ptr = out->normlist.get();
+        const int* markers_ptr = out->edgemarkerlist.get();
+        writer.write(edges);
+        writer.write(markers);
+        writer.write(voronoi);
+        if (edges > 0) {
+            writer.write_array(edges_ptr, edges * 2);
+            if (voronoi) {
+                writer.write_array(norms_ptr, edges * 2);
+            } else if (markers) {
+                writer.write_array(markers_ptr, edges);
+            }
+        }
+        writer.close();
     }
 
     void read_ele_file(std::string filename, std::shared_ptr<triangulateio> in) {
