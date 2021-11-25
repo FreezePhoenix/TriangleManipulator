@@ -1,6 +1,6 @@
 # CMakeList.txt : CMake project for Assembly, include source and define
 # project specific logic here.
-#
+
 cmake_minimum_required (VERSION 3.5)
 add_definitions(-std=c++20 -O3 -Wall -g)
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
