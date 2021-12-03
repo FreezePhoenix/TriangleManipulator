@@ -481,7 +481,7 @@ namespace TriangleManipulator {
     }
     
     void write_edge_file_binary(std::string filename, std::shared_ptr<triangulateio> out) {
-        binary_writer<> writer = binary_writer<>(filename.c_str());
+        binary_writer writer = binary_writer(filename.c_str());
         const unsigned int edges = out->numberofedges;
         const char markers = out->edgemarkerlist != nullptr;
         const char voronoi = out->normlist != nullptr;

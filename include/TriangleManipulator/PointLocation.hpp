@@ -44,14 +44,7 @@ namespace PointLocation {
             return std::sqrt(std::pow(p2.x - x, 2) + std::pow(p2.y - y, 2));
         }
     };
-    struct PointHash {
-        inline unsigned int operator () (const Point &p) const {
-            return p.hash;
-        }
-        inline std::size_t operator () (const Point &p, const Point &p2) const {
-            return p.hash - p2.hash;
-        }
-    };
+    
     union Line {
         struct {
             Point first;
@@ -64,9 +57,7 @@ namespace PointLocation {
             short y2;
         };
         unsigned long int hash;
-        constexpr Line() {
-            this->first = Point{0, 0};
-            this->second = Point{0, 0};
+        constexpr Line() : first{ 0, 0 }, second{ 0, 0 } {
             // this->hash = 0;
         }
         constexpr Line(Point& first, Point& second) {
@@ -129,9 +120,11 @@ namespace PointLocation {
             double64x2_t matrix;
         };
         unsigned int id;
-        bool removed = false;
+        bool removed;
         Vertex();
         Vertex(double x, double y);
+        Vertex(double x, double y, unsigned int id);
+        Vertex(double x, double y, unsigned int id, bool removed);
         void add_triangle(unsigned int triangle_id);
         void remove_triangle(unsigned int triangle_id);
     };
@@ -143,12 +136,11 @@ namespace PointLocation {
 
     class DirectedAcyclicGraph {
         public:
-            unsigned int _root;
+            unsigned int root;
             std::map<unsigned int, std::set<unsigned int>> graph;
             DirectedAcyclicGraph();
             void add_directed_edge(unsigned int first, unsigned int second);
             std::set<unsigned int>& neighbhors(unsigned int n);
-            unsigned int root();
             void write_to_file(std::string base_name);
     };
 
@@ -183,7 +175,7 @@ namespace PointLocation {
         return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x); 
     };
     inline constexpr bool point_inside_triangle(const Vertex::Point& p, const Vertex::Point& p1, const Vertex::Point& p2, const Vertex::Point& p3) {
-        return ((ccw(p1, p2, p) > 0) && (ccw(p2, p3, p) > 0) && (ccw(p3, p1, p) > 0)); 
+        return (((ccw(p1, p2, p) > 0) && (ccw(p2, p3, p) > 0) && (ccw(p3, p1, p) > 0))) || (((ccw(p1, p2, p) < 0) && (ccw(p2, p3, p) < 0) && (ccw(p3, p1, p) < 0))); 
     };
     inline constexpr bool sides_intersect(const Vertex::Point& a, const Vertex::Point& b, const Vertex::Point& c, const Vertex::Point& d) {
         return ((ccw(a, b, c) > 0) ? (ccw(a, b, d) < 0) : (ccw(a, b, d) > 0)) && ((ccw(c, d, a) > 0) ? (ccw(c, d, b) < 0) : (ccw(c, d, b) > 0));
@@ -198,13 +190,16 @@ namespace PointLocation {
         return ((ccw(p1, p2, p) > 0) && (ccw(p2, p3, p) > 0) && (ccw(p3, p1, p) > 0));
     };
     inline constexpr bool sides_intersect(const double64x2_t a, const double64x2_t b, const double64x2_t c, const double64x2_t d) {
-        return ((ccw(a, b, c) > 0) ? (ccw(a, b, d) < 0) : (ccw(a, b, d) > 0)) && ((ccw(c, d, a) > 0) ? (ccw(c, d, b) < 0) : (ccw(c, d, b) > 0));
+        
+        return ((ccw(a, b, c) == 0) ? true : ((ccw(a, b, c) > 0) ? (ccw(a, b, d) < 0) : (ccw(a, b, d) > 0))) && ((ccw(c, d, a) == 0) ? true : ((ccw(c, d, a) > 0) ? (ccw(c, d, b) < 0) : (ccw(c, d, b) > 0)));
     };
     class GraphInfo {
         public:
             std::shared_ptr<PlanarGraph> planar_graph;
             std::shared_ptr<DirectedAcyclicGraph> directed_graph;
             std::map<std::tuple<unsigned int, unsigned int, unsigned int>, unsigned int> triangle_map;
+            GraphInfo() : planar_graph(new PlanarGraph()), directed_graph(new DirectedAcyclicGraph()), triangle_map() {};
+            GraphInfo(std::shared_ptr<triangulateio> input) : planar_graph(new PlanarGraph(input)), directed_graph(new DirectedAcyclicGraph()), triangle_map() {};
             void process();
             int locate_point(Vertex::Point point);
             inline bool triangle_contains_point(const Vertex::Point& p, const Triangle& tri) {
@@ -214,13 +209,6 @@ namespace PointLocation {
             void write_to_file(std::string base_filename);
             void write_to_binary_file(std::string filename);
             void read_from_binary_file(std::string filename);
-    };
-
-    inline GraphInfo create_graph(std::shared_ptr<triangulateio> input) {
-        return GraphInfo(std::shared_ptr<PlanarGraph>(new PlanarGraph(input)), std::shared_ptr<DirectedAcyclicGraph>(new DirectedAcyclicGraph()));
-    };
-    inline GraphInfo create_graph() {
-        return GraphInfo(std::shared_ptr<PlanarGraph>(new PlanarGraph()), std::shared_ptr<DirectedAcyclicGraph>(new DirectedAcyclicGraph()));
     };
     inline constexpr void sort(unsigned int& a, unsigned int& b, unsigned int& c) {
         if (a < b) {
@@ -245,6 +233,15 @@ namespace std {
     inline bool operator==(const PointLocation::Point& first, const PointLocation::Point& second) {
         return first.hash == second.hash;
     }
+    template<>
+    struct hash<PointLocation::Point> {
+        inline unsigned int operator () (const PointLocation::Point &p) const {
+            return p.hash;
+        }
+        inline std::size_t operator () (const PointLocation::Point &p, const PointLocation::Point &p2) const {
+            return p.hash - p2.hash;
+        }
+    };
     inline bool operator==(const PointLocation::Line& first, const PointLocation::Line& second) {
         return first.hash == second.hash;
     }
