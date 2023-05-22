@@ -71,7 +71,7 @@ namespace ShapeManipulator {
     };
     std::shared_ptr<std::vector<double>> find_points_inside(std::shared_ptr<triangulateio> input);
     inline void handle_intersections(std::vector<PointLocation::Line>& lines, std::function<void(const PointLocation::Line&, const PointLocation::Line&)> callback) {
-        std::multiset<Point_Marker> points = std::multiset<Point_Marker>();
+        std::set<Point_Marker> points = std::set<Point_Marker>();
         const PointLocation::Line* lines_ptr = lines.data();
         for (size_t i = 0, size = lines.size(); i < size; i++) {
             const PointLocation::Line& line = *lines_ptr++;

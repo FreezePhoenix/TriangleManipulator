@@ -3,6 +3,7 @@
 #include "TriangleManipulator/TriangleManipulator.hpp"
 #include "earcut.hpp"
 #include "fmt/os.h"
+#include <iostream>
 
 // template class std::vector<PointLocation::Point>;
 // template class std::vector<PointLocation::Line>;
@@ -24,23 +25,8 @@ namespace PointLocation {
     inline void DirectedAcyclicGraph::add_directed_edge(unsigned int first, unsigned int second) {
         this->graph[first].insert(second);
     }
-    Vertex::Vertex() : triangles(), point{ 0, 0 }, id(-1), removed(false) {}
 
-    Vertex::Vertex(double x, double y) : triangles(), point{ x, y }, id(-1), removed(false) {}
-
-    Vertex::Vertex(double x, double y, unsigned int id) : triangles(), point{ x, y }, id(id), removed(false) {}
-    
-    Vertex::Vertex(double x, double y, unsigned int id, bool removed) : triangles(), point{ x, y }, id(id), removed(removed) {}
-
-    inline void Vertex::add_triangle(unsigned int triangle_id) {
-        this->triangles.insert(triangle_id);
-    }
-
-    inline void Vertex::remove_triangle(unsigned int triangle_id) {
-        this->triangles.erase(triangle_id);
-    }
-
-    PlanarGraph::PlanarGraph() : vertices(), adjacency_list(), all_triangles(), triangulations(), num_vertices(0) {}
+    PlanarGraph::PlanarGraph() : vertices(), all_triangles(), triangulations(), num_vertices(0) {}
     
 
     PlanarGraph::PlanarGraph(std::shared_ptr<triangulateio> graph) : PlanarGraph() {
@@ -49,7 +35,7 @@ namespace PointLocation {
         if (graph->numberofholes != 0) {
             graph->numberofholes = 0;
         }
-        std::shared_ptr<triangulateio> real_graph = TriangleManipulator::create_instance();
+        real_graph = TriangleManipulator::create_instance();
         real_graph->numberofpoints = graph->numberofpoints + 3;
         real_graph->numberofsegments = graph->numberofsegments + 3;
         real_graph->pointlist = trimalloc<REAL>(real_graph->numberofpoints * 2 * sizeof(REAL));
@@ -99,75 +85,77 @@ namespace PointLocation {
         real_graph->segmentmarkerlist.get()[graph->numberofsegments + 1] = 1;
         real_graph->segmentmarkerlist.get()[graph->numberofsegments + 2] = 1;
         
-        triangulate("pzeQ", real_graph, output, nullptr);
+        triangulate("pzeQN", real_graph, output, nullptr);
         std::shared_ptr<triangulateio> empty = TriangleManipulator::create_instance();
-        this->vertices.reserve(output->numberofpoints);
-        const REAL* output_point_ptr = output->pointlist.get();
-        for (unsigned int i = 0; i < output->numberofpoints; i++) {
+        this->vertices.reserve(real_graph->numberofpoints);
+        const REAL* output_point_ptr = real_graph->pointlist.get();
+        for (size_t i = 0; i < real_graph->numberofpoints; i++) {
             this->add_vertex(output_point_ptr[i * 2], output_point_ptr[i * 2 + 1]);
             // Allow one unit of space on edges
-            
         }
         const int* output_segment_ptr = output->segmentlist.get();
-        for (unsigned int i = 0; i < output->numberofsegments; i++) {
+        for (size_t i = 0; i < output->numberofsegments; i++) {
             this->connect_vertices(output_segment_ptr[i * 2], output_segment_ptr[i * 2 + 1]);
         }
         const int* output_edge_ptr = output->edgelist.get();
-        for (unsigned int i = 0; i < output->numberofedges; i++) {
+        for (size_t i = 0; i < output->numberofedges; i++) {
             this->connect_vertices(output_edge_ptr[i * 2], output_edge_ptr[i * 2 + 1]);
         }
-        this->triangulations.push_back(std::set<unsigned int>());
+        std::set<unsigned int>& triangulation = this->triangulations.emplace_back();
         this->all_triangles.reserve(output->numberoftriangles);
         const unsigned int* output_triangle_ptr = output->trianglelist.get();
         for (std::size_t i = 0; i < output->numberoftriangles; i++) {
             unsigned int a = *output_triangle_ptr++;
             unsigned int b = *output_triangle_ptr++;
             unsigned int c = *output_triangle_ptr++;
+            this->all_triangles.emplace_back(a, b, c, i);
             this->vertices[a].add_triangle(i);
             this->vertices[b].add_triangle(i);
             this->vertices[c].add_triangle(i);
-            this->triangulations[0].insert(i);
-            this->all_triangles.emplace_back(a, b, c);
+            triangulation.emplace(i);
         }
     }
 
     unsigned int PlanarGraph::add_vertex(double x, double y) {
-        Vertex vert(x, y, this->vertices.size());
-        this->vertices.push_back(vert);
-        this->adjacency_list.push_back(std::set<unsigned int>());
-        this->num_vertices++;
-        
-        return vert.id;
-    }
-    inline unsigned int PlanarGraph::degree(unsigned int vertex_id) {
-        return this->adjacency_list[vertex_id].size();
+        return this->vertices.emplace_back(x, y, num_vertices++).id;
     }
 
     inline void PlanarGraph::add_directed_edge(unsigned int first_vertex, unsigned int second_vertex) {
-        this->adjacency_list[first_vertex].insert(second_vertex);
+        this->vertices[first_vertex].neighs.emplace(second_vertex);
     }
 
     inline void PlanarGraph::remove_directed_edge(unsigned int first_vertex, unsigned int second_vertex) {
-        this->adjacency_list[first_vertex].erase(second_vertex);
+        this->vertices[first_vertex].neighs.erase(second_vertex);
+        // this->adjacency_list[first_vertex].erase(second_vertex);
     }
 
     inline void PlanarGraph::connect_vertices(unsigned int first_vertex, unsigned int second_vertex) {
-        if(!this->adjacency_list[first_vertex].contains(second_vertex) && !this->adjacency_list[second_vertex].contains(first_vertex)) {
+        // auto& first_list = this->adjacency_list[first_vertex];
+        // if (!first_list.contains(second_vertex)) {
+        //     auto& second_list = this->adjacency_list[second_vertex];
+        //     if (!second_list.contains(first_vertex)) {
+        //         first_list.emplace(second_vertex);
+        //         second_list.emplace(first_vertex);
+        //     }
+        // }
+        if (!this->vertices[first_vertex].neighs.contains(second_vertex) && !this->vertices[second_vertex].neighs.contains(first_vertex)) {
             this->add_directed_edge(first_vertex, second_vertex);
             this->add_directed_edge(second_vertex, first_vertex);
         }
     }
     RemovedVertexInfo PlanarGraph::remove_vertex(unsigned int vertex_id) {
-        this->vertices[vertex_id].removed = true;
+        Vertex& vertex = this->vertices[vertex_id];
+        vertex.removed = true;
         this->num_vertices--;
-        std::set<unsigned int>& neigh = neighbhors(vertex_id);
-        const unsigned int DEGREE = neigh.size();
+        std::set<unsigned int>& neigh = vertex.neighs;
+        
+        const unsigned int DEGREE = vertex.degree();
         for (const unsigned int other : neigh) {
             this->remove_directed_edge(other, vertex_id);
         }
         neigh.clear();
 
-        RemovedVertexInfo result = RemovedVertexInfo();
+        RemovedVertexInfo result = RemovedVertexInfo(vertex);
         
         std::vector<unsigned int>& old_triangle_ids = result.old_triangle_ids;
         old_triangle_ids.reserve(DEGREE);
@@ -175,39 +163,33 @@ namespace PointLocation {
         std::vector<unsigned int>& polygon = result.polygon;
         polygon.reserve(DEGREE);
 
-        std::unordered_map<unsigned int, unsigned int> triangles = std::unordered_map<unsigned int, unsigned int>();
-        triangles.reserve(DEGREE);
-
-        for (const unsigned int triangle_id : this->vertices[vertex_id].triangles) {
+        std::unordered_map<unsigned int, unsigned int> pointmap = std::unordered_map<unsigned int, unsigned int>();
+        pointmap.reserve(DEGREE);
+        // So, we have triangles.
+        for (const unsigned int triangle_id : vertex.triangles) {
             const Triangle& triangle = this->all_triangles[triangle_id];
             old_triangle_ids.emplace_back(triangle_id);
             // Going clockwise the entire cycle allows us to make some optimizations.
             if (triangle.vertex_one == vertex_id) {
-                triangles.emplace(triangle.vertex_two, triangle.vertex_three);
+                pointmap.emplace(triangle.vertex_two, triangle.vertex_three);
             } else if (triangle.vertex_two == vertex_id) {
-                triangles.emplace(triangle.vertex_three, triangle.vertex_one);
+                pointmap.emplace(triangle.vertex_three, triangle.vertex_one);
             } else {
-                triangles.emplace(triangle.vertex_one, triangle.vertex_two);
+                pointmap.emplace(triangle.vertex_one, triangle.vertex_two);
             }
         }
-        unsigned int query = 0;
-        {
-            Triangle triangle = this->all_triangles[*old_triangle_ids.begin()];
-            if (triangle.vertex_one == vertex_id) {
-                query = triangle.vertex_two;
-            } else if (triangle.vertex_two == vertex_id) {
-                query = triangle.vertex_three;
-            } else {
-                query = triangle.vertex_one;
-            }
-        }
+        unsigned int query = pointmap.begin()->first;
         polygon.emplace_back(query);
         const unsigned int MAX = DEGREE - 1;
         for (unsigned int i = 0; i < MAX; i++) {
-            query = triangles.at(query);
+            query = pointmap.at(query);
             polygon.emplace_back(query);
         }
-        for(unsigned int triangle_id : old_triangle_ids) {
+        // std::cout << "Possible output: " << std::endl;
+        // for (unsigned int other : polygon) {
+        //     std::cout << other << std::endl;
+        // }
+        for (unsigned int triangle_id : old_triangle_ids) {
             Triangle& triangle = this->all_triangles[triangle_id];
             this->vertices[triangle.vertex_one].remove_triangle(triangle_id);
             this->vertices[triangle.vertex_two].remove_triangle(triangle_id);
@@ -219,55 +201,91 @@ namespace PointLocation {
 
     inline std::vector<unsigned int> PlanarGraph::find_independant_set() {
         std::vector<unsigned int> res = std::vector<unsigned int>();
-        std::unordered_set<unsigned int> forbidden = std::unordered_set<unsigned int>();
+        // TODO: More efficient way of doing this?
         for (size_t i = 0, size = this->vertices.size() - 3; i < size; i++) {
-            if (!this->vertices[i].removed) {
-                if (!forbidden.contains(i)) {
-                    const unsigned int degree = this->degree(i);
-                    if (degree < 8) {
-                        res.push_back(i);
-                        forbidden.insert(this->adjacency_list[i].cbegin(), this->adjacency_list[i].cend());
+            const Vertex& vertex = this->vertices[i];
+            if (!vertex.removed && !vertex.forbidden) {
+                const size_t degree = vertex.degree();
+                if (degree < 8) {
+                    res.emplace_back(i);
+                    for (unsigned int neigh : vertex.neighs) {
+                        this->vertices[neigh].forbidden = true;
                     }
                 }
             }
+        }
+        for (size_t i = 0; i < this->vertices.size() - 3; i++) {
+            this->vertices[i].forbidden = false;
         }
         return res;
     }
     
     inline std::vector<Triangle> PlanarGraph::get_triangulation(const std::vector<unsigned int>& polygon) {
-        // Using Triangle
+        // Using Earcut
+
+        std::vector<std::vector<std::pair<double, double>>> earcut_polygon = std::vector<std::vector<std::pair<double, double>>>();
+
         const size_t size = polygon.size();
-        std::shared_ptr<triangulateio> poly = TriangleManipulator::create_instance();
-        poly->numberofpoints = size;
-        poly->pointlist = trimalloc<REAL>(size * 2);
-        poly->numberofsegments = size;
-        poly->segmentlist = trimalloc<int>(size * 2);
-        poly->segmentmarkerlist = trimalloc<int>(size);
+
+        std::vector<std::pair<double, double>>& current_polygon = earcut_polygon.emplace_back();
+
+        current_polygon.reserve(size);
+
         const unsigned int* ptr = polygon.data();
-        REAL* point_ptr = poly->pointlist.get();
-        int* segment_ptr = poly->segmentlist.get();
-        int* segment_marker_ptr = poly->segmentmarkerlist.get();
+
         for (size_t i = 0; i < size; i++) {
             const Vertex::Point& point = this->vertices[ptr[i]].point;
-            point_ptr[i * 2] = point.x;
-            point_ptr[i * 2 + 1] = point.y;
-            segment_ptr[i * 2] = i;
-            segment_ptr[i * 2 + 1] = (i + 1) % size;
-            *segment_marker_ptr++ = 1;
+            current_polygon.emplace_back(point.x, point.y);
         }
-        std::shared_ptr<triangulateio> result = TriangleManipulator::create_instance();
-        triangulate("pzQPN", poly, result, nullptr);
-        const unsigned int* triangle_ptr = result->trianglelist.get();
+    
+        std::vector<unsigned int> triangles = mapbox::earcut<unsigned int>(earcut_polygon);
+
+        // For a polygon of size N, the minimum number of triangles to represent it is N - 2. This is the same number as yielded by earcut.
+        const size_t num_triangles = size - 2;
+
+        const unsigned int* triangle_ptr = triangles.data();
+
+        std::vector<Triangle> result = std::vector<Triangle>();
+        result.reserve(num_triangles);
+        unsigned int new_id_start = this->all_triangles.size();
+        for (size_t i = 0; i < num_triangles * 3; i += 3) {
+            result.emplace_back(ptr[triangle_ptr[i]], ptr[triangle_ptr[i + 1]], ptr[triangle_ptr[i + 2]], new_id_start++);
+        }
+        return result;
+
+        // Using triangle
+        // const size_t size = polygon.size();
+        // std::shared_ptr<triangulateio> poly = TriangleManipulator::create_instance();
+        // poly->numberofpoints = size;
+        // poly->pointlist = trimalloc<REAL>(size * 2);
+        // poly->numberofsegments = size;
+        // poly->segmentlist = trimalloc<int>(size * 2);
+        // poly->segmentmarkerlist = trimalloc<int>(size);
+        // const unsigned int* ptr = polygon.data();
+        // REAL* point_ptr = poly->pointlist.get();
+        // int* segment_ptr = poly->segmentlist.get();
+        // int* segment_marker_ptr = poly->segmentmarkerlist.get();
+        // for (size_t i = 0; i < size; i++) {
+        //     const Vertex::Point& point = this->vertices[ptr[i]].point;
+        //     point_ptr[i * 2] = point.x;
+        //     point_ptr[i * 2 + 1] = point.y;
+        //     segment_ptr[i * 2] = i;
+        //     segment_ptr[i * 2 + 1] = (i + 1) % size;
+        //     *segment_marker_ptr++ = 1;
+        // }
+        // std::shared_ptr<triangulateio> result = TriangleManipulator::create_instance();
+        // triangulate("pzQPN", poly, result, nullptr);
+        // const unsigned int* triangle_ptr = result->trianglelist.get();
         
-        std::vector<Triangle> results = std::vector<Triangle>();
-        results.reserve(result->numberoftriangles);
-        for (size_t i = 0; i < result->numberoftriangles; i++) {
-            unsigned int point_one = ptr[triangle_ptr[i * 3]];
-            unsigned int point_two = ptr[triangle_ptr[i * 3 + 1]];
-            unsigned int point_three = ptr[triangle_ptr[i * 3 + 2]];
-            results.emplace_back(point_one, point_two, point_three);
-        }
-        return results;
+        // std::vector<Triangle> results = std::vector<Triangle>();
+        // results.reserve(result->numberoftriangles);
+        // for (size_t i = 0; i < result->numberoftriangles; i++) {
+        //     unsigned int point_one = ptr[triangle_ptr[i * 3]];
+        //     unsigned int point_two = ptr[triangle_ptr[i * 3 + 1]];
+        //     unsigned int point_three = ptr[triangle_ptr[i * 3 + 2]];
+        //     results.emplace_back(point_one, point_two, point_three);
+        // }
+        // return results;
     }
 
     inline std::vector<unsigned int> PlanarGraph::triangulate_polygon(const std::vector<unsigned int>& polygon) {
@@ -284,7 +302,7 @@ namespace PointLocation {
 
             unsigned int new_id = this->all_triangles.size();
             new_triangle_ids.emplace_back(new_id);
-            this->all_triangles.push_back(triangle);
+            this->all_triangles.emplace_back(triangle);
 
             this->vertices[triangle.vertex_one].add_triangle(new_id);
             this->vertices[triangle.vertex_two].add_triangle(new_id); 
@@ -296,31 +314,31 @@ namespace PointLocation {
     inline std::set<unsigned int>& DirectedAcyclicGraph::neighbhors(unsigned int n) {
         return this->graph.at(n);
     }
-    
-    inline bool PlanarGraph::triangles_intersect(unsigned int first, unsigned int second) {
-        Triangle tri1 = this->all_triangles[first];
-        Triangle tri2 = this->all_triangles[second];
 
-        const double64x2_t t1p1 = this->vertices[tri1.vertex_one].matrix;
-        const double64x2_t t1p2 = this->vertices[tri1.vertex_two].matrix;
-        const double64x2_t t1p3 = this->vertices[tri1.vertex_three].matrix;
-        const double64x2_t t2p1 = this->vertices[tri2.vertex_one].matrix;
-        const double64x2_t t2p2 = this->vertices[tri2.vertex_two].matrix;
-        const double64x2_t t2p3 = this->vertices[tri2.vertex_three].matrix;
+    inline bool PlanarGraph::triangles_intersect(unsigned int first, unsigned int second) {
+        const Triangle& tri1 = this->all_triangles[first];
+        const Triangle& tri2 = this->all_triangles[second];
+
+        const double64x2_t& t1p1 = this->vertices[tri1.vertex_one].matrix;
+        const double64x2_t& t1p2 = this->vertices[tri1.vertex_two].matrix;
+        const double64x2_t& t1p3 = this->vertices[tri1.vertex_three].matrix;
+        const double64x2_t& t2p1 = this->vertices[tri2.vertex_one].matrix;
+        const double64x2_t& t2p2 = this->vertices[tri2.vertex_two].matrix;
+        const double64x2_t& t2p3 = this->vertices[tri2.vertex_three].matrix;
         for (unsigned int i = 0; i < 3; i++) {
             if(point_inside_triangle(this->vertices[tri2.vertices[i]].matrix, t1p1, t1p2, t1p3)) {
                 return true;
             }
         }
         for(int i = 0; i < 3; i++) {
-            const double64x2_t a = this->vertices[tri1.vertices[i]].matrix; 
-            const double64x2_t b = this->vertices[tri1.vertices[(i == 2) ? 0 : i+1]].matrix; 
+            const double64x2_t& a = this->vertices[tri1.vertices[i]].matrix; 
+            const double64x2_t& b = this->vertices[tri1.vertices[(i == 2) ? 0 : i+1]].matrix; 
             if (point_inside_triangle(a, t2p1, t2p2, t2p3)) {
                 return true;
             }
             for (int j = 0; j < 3; j++) {
-                const double64x2_t c = this->vertices[tri2.vertices[j]].matrix;
-                const double64x2_t d = this->vertices[tri2.vertices[(j == 2) ? 0 : j+1]].matrix; 
+                const double64x2_t& c = this->vertices[tri2.vertices[j]].matrix;
+                const double64x2_t& d = this->vertices[tri2.vertices[(j == 2) ? 0 : j+1]].matrix; 
                 if(sides_intersect(a, b, c, d)) {
                     return true;
                 }
@@ -329,7 +347,7 @@ namespace PointLocation {
         return false;
     }
 
-    void PlanarGraph::remove_vertices(std::vector<unsigned int> vertices, std::shared_ptr<DirectedAcyclicGraph> dag) {
+    void PlanarGraph::remove_vertices(const std::vector<unsigned int>& vertices, std::shared_ptr<DirectedAcyclicGraph> dag) {
         std::set<unsigned int>& triangles = this->triangulations.emplace_back(this->triangulations.back());
         for (unsigned int vertex : vertices) {
             RemovedVertexInfo dat = this->remove_vertex(vertex);
@@ -339,19 +357,99 @@ namespace PointLocation {
             }
             const std::vector<unsigned int>& new_triangles = this->triangulate_polygon(dat.polygon);
 
-            for(unsigned int tri: new_triangles) {
-                triangles.emplace(tri);
-            }
+            triangles.insert(new_triangles.begin(), new_triangles.end());
 
             for(unsigned int old_tri : dat.old_triangle_ids) {
-                for(unsigned int new_tri : new_triangles) {
+               for(unsigned int new_tri : new_triangles) {
                     if(triangles_intersect(old_tri, new_tri)) {
                         dag->add_directed_edge(new_tri, old_tri);
                     }
-                }
+                } 
             }
         }
     }
+    
+    // void PlanarGraph::remove_vertices(std::vector<unsigned int> vertices, std::shared_ptr<DirectedAcyclicGraph> dag) {
+    //     std::set<unsigned int>& triangles = this->triangulations.emplace_back(this->triangulations.back());
+    //     std::shared_ptr<triangulateio> polygons = TriangleManipulator::create_instance();
+    //     std::vector<RemovedVertexInfo> infos = std::vector<RemovedVertexInfo>();
+    //     infos.reserve(vertices.size());
+    //     size_t total_points = 0;
+    //     for (unsigned int vertex : vertices) {
+    //         total_points += infos.emplace_back(this->remove_vertex(vertex)).polygon.size();
+    //     }
+    //     polygons->numberofpoints = real_graph->numberofpoints;
+    //     polygons->pointlist = real_graph->pointlist;
+        
+    //     polygons->numberofsegments = total_points;
+    //     polygons->segmentlist = trimalloc<int>(total_points * 2);
+    //     polygons->segmentmarkerlist = trimalloc<int>(total_points);
+        
+    //     polygons->numberofregions = infos.size();
+    //     polygons->regionlist = trimalloc<REAL>(infos.size() * 4);
+
+    //     int* segment_ptr = polygons->segmentlist.get();
+    //     int* segment_marker_ptr = polygons->segmentmarkerlist.get();
+    //     REAL* regionlist_ptr = polygons->regionlist.get();
+    //     size_t segment_index = 0;
+    //     for (size_t i = 0; i < infos.size(); i++) {
+    //         const RemovedVertexInfo& info = infos[i];
+    //         *regionlist_ptr++ = this->vertices[info.removed.id].point.x;
+    //         *regionlist_ptr++ = this->vertices[info.removed.id].point.y;
+    //         *regionlist_ptr++ = i + 1;
+    //         regionlist_ptr++;
+    //         const unsigned int* ptr = info.polygon.data();
+    //         for (size_t j = 0; j < info.polygon.size(); segment_index++, j++) {
+    //             unsigned int target = ptr[j];
+    //             segment_ptr[segment_index * 2] = target;
+    //             if (j > 0) {
+    //                 segment_ptr[segment_index * 2 - 1] = target;
+    //             }
+    //             *segment_marker_ptr++ = 1;
+    //         }
+    //         segment_ptr[segment_index * 2 - 1] = ptr[0];
+    //     }
+
+    //     std::shared_ptr<triangulateio> result = TriangleManipulator::create_instance();
+    //     triangulate("pzQPA", polygons, result, nullptr);
+    //     TriangleManipulator::write_poly_file(fmt::format("Maps/A.{}.poly", this->triangulations.size()), polygons);
+    //     TriangleManipulator::write_ele_file(fmt::format("Maps/A.{}.ele", this->triangulations.size()), result);
+    //     TriangleManipulator::write_node_file(fmt::format("Maps/A.{}.node", this->triangulations.size()), result);
+    //     const unsigned int* triangle_ptr = result->trianglelist.get();
+    //     const double* triangleattributelist_ptr = result->triangleattributelist.get();
+
+    //     for (std::size_t i = 0; i < result->numberoftriangles; i++) {
+
+    //         unsigned int region = triangleattributelist_ptr[i];
+    //         if (region == 0) {
+    //             continue;
+    //         }
+    //         region--;
+    //         unsigned int point_one = triangle_ptr[i * 3];
+    //         unsigned int point_two = triangle_ptr[i * 3 + 1];
+    //         unsigned int point_three = triangle_ptr[i * 3 + 2];
+    //         unsigned int new_id = this->all_triangles.size();
+    //         const Triangle& triangle = this->all_triangles.emplace_back(point_one, point_two, point_three);
+
+    //         this->connect_vertices(triangle.vertex_one, triangle.vertex_two);
+    //         this->connect_vertices(triangle.vertex_two, triangle.vertex_three);
+    //         this->connect_vertices(triangle.vertex_three, triangle.vertex_one);
+
+    //         triangles.emplace(new_id);
+    //         const RemovedVertexInfo& info = infos[region];
+    //         for (unsigned int old_tri : info.old_triangle_ids) {
+    //             triangles.erase(old_tri);
+    //             if(triangles_intersect(old_tri, new_id)) {
+    //                 dag->add_directed_edge(new_id, old_tri);
+    //             }
+    //         }
+
+    //         this->vertices[triangle.vertex_one].add_triangle(new_id);
+    //         this->vertices[triangle.vertex_two].add_triangle(new_id); 
+    //         this->vertices[triangle.vertex_three].add_triangle(new_id); 
+    //     }
+    // }
+    
     void GraphInfo::process() {
         std::size_t last_run = 0;
         while (this->planar_graph->triangulations.back().size() > 1) {
@@ -361,6 +459,7 @@ namespace PointLocation {
             }
             last_run = this->planar_graph->triangulations.back().size();
         }
+        // std::cout << this->planar_graph->triangulations.size() << std::endl;
         this->directed_graph->root = this->planar_graph->all_triangles.size() - 1;
     }
     
@@ -398,7 +497,6 @@ namespace PointLocation {
         const unsigned int TRIANGULATIONS = reader.read<unsigned int>();
         const unsigned int NOT_REMOVED = reader.read<unsigned int>();
         this->planar_graph->vertices.reserve(VERTICES);
-        this->planar_graph->adjacency_list.reserve(VERTICES);
         this->planar_graph->triangulations.reserve(TRIANGULATIONS);
         this->planar_graph->num_vertices = NOT_REMOVED;
         for (unsigned int i = 0; i < VERTICES; i++) {
@@ -407,8 +505,9 @@ namespace PointLocation {
             unsigned char num_triangles = reader.read<unsigned char>();
             unsigned char num_neighbors = reader.read<unsigned char>();
             bool removed = reader.read<bool>();
-            Vertex& vertex = this->planar_graph->vertices.emplace_back(x, y, i, removed);
-            std::set<unsigned int>& neighbors = this->planar_graph->adjacency_list.emplace_back();
+            bool forbidden = reader.read<bool>();
+            Vertex& vertex = this->planar_graph->vertices.emplace_back(x, y, i, removed, forbidden);
+            std::set<unsigned int>& neighbors = vertex.neighs;
             if (!vertex.removed) {
                 for (unsigned char i = 0; i < num_triangles; i++) {
                     vertex.triangles.emplace(reader.read<unsigned int>());
@@ -462,11 +561,11 @@ namespace PointLocation {
             writer.write(vertex.point.x);
             writer.write(vertex.point.y);
             writer.write<unsigned char>(vertex.triangles.size());
-            writer.write<unsigned char>(planar_graph->adjacency_list[i].size());
+            writer.write<unsigned char>(vertex.neighs.size());
             writer.write(vertex.removed);
             if (!vertex.removed) {
                 unwrap_write(vertex.triangles, writer);
-                unwrap_write(planar_graph->adjacency_list[i], writer);
+                unwrap_write(vertex.neighs, writer);
             }
         }
         writer.write_array((unsigned int*) planar_graph->all_triangles.data(), TRIANGLES * 3);
@@ -501,7 +600,7 @@ namespace PointLocation {
             file.print("\n{} {} {}", vertex.removed, vertex.point.x, vertex.point.y);
             if (!vertex.removed) {
                 NOT_REMOVED++;
-                file.print(" {} {}", vertex.triangles.size(), planar_graph->adjacency_list[i].size());
+                file.print(" {} {}", vertex.triangles.size(), vertex.neighs.size());
             }
         }
         file.print("\n{}", NOT_REMOVED);
@@ -511,7 +610,7 @@ namespace PointLocation {
             if (!vertex.removed) {
                 file.print("\n{}", i);
                 unwrap_write(vertex.triangles, file);
-                unwrap_write(planar_graph->adjacency_list[i], file);
+                unwrap_write(vertex.neighs, file);
             }
         }
         const unsigned int TRIANGLES = planar_graph->all_triangles.size();

@@ -10,6 +10,7 @@
 #include <vector>
 #include <set>
 #include <memory>
+#include <iostream>
 #include <cmath>
 
 namespace PointLocation {
@@ -32,7 +33,7 @@ namespace PointLocation {
             short y;
         };
         unsigned int hash;
-        bool operator==(const Point& other) {
+        const bool operator==(const Point& other) {
             return other.hash == this->hash;
         }
         inline double angle(const Point& p2) {
@@ -46,6 +47,7 @@ namespace PointLocation {
     };
     
     union Line {
+        typedef unsigned long int hash_t;
         struct {
             Point first;
             Point second;
@@ -56,34 +58,33 @@ namespace PointLocation {
             short x2;
             short y2;
         };
-        unsigned long int hash;
-        constexpr Line() : first{ 0, 0 }, second{ 0, 0 } {
+        hash_t hash;
+        constexpr Line() : hash{0} {
             // this->hash = 0;
         }
         constexpr Line(Point& first, Point& second) {
-            if(first.x < second.x || first.y < second.y) {
+            if (first.x < second.x || first.y < second.y) {
                 this->first = first;
                 this->second = second;
             } else {
                 this->first = second;
                 this->second = first;
             }
-            // this->hash = ((unsigned long int) this->first.hash << 32) + (unsigned long int) this->second.hash;
         }
         constexpr Line(const Point& first, const Point& second) {
-            if(first.x < second.x || first.y < second.y) {
+            if (first.x < second.x || first.y < second.y) {
                 this->first = first;
                 this->second = second;
             } else {
                 this->first = second;
                 this->second = first;
             }
-            // this->hash = ((unsigned long int) this->first.hash << 32) + (unsigned long int) this->second.hash;
         }
-        bool operator==(const Line& other) {
+        constexpr Line(short x1, short y1, short x2, short y2) : Line{Point {x1, y1}, Point{x2, y2}} {
+        }
+        constexpr bool operator==(const Line& other) {
             return other.hash == this->hash;
         }
-        Line(short x1, short y1, short x2, short y2): Line(Point{x1, y1}, Point{x2, y2}) {}
     };
     struct LineHash {
         inline unsigned long int operator () (const Line &l) const {
@@ -97,20 +98,20 @@ namespace PointLocation {
     union Triangle {
         struct {
             unsigned int vertex_one;
-            unsigned int vertex_two;;
+            unsigned int vertex_two;
             unsigned int vertex_three;
+            unsigned int id;
         };
-        unsigned int vertices[3];
-        Triangle(unsigned int a, unsigned int b, unsigned int c) : vertex_one(a), vertex_two(b), vertex_three(c) {
-        }
-        Triangle() {}
+        unsigned int vertices[4];
+        constexpr Triangle(unsigned int a, unsigned int b, unsigned int c, unsigned int id) : vertices{ a, b, c, id} {}
+        constexpr Triangle() : vertices{ 0, 0, 0, 0 } {}
         inline bool operator==(const Triangle& rhs) {
-            std::set<unsigned int> first { vertex_one, vertex_two, vertex_three };
-            return (!first.emplace(rhs.vertex_one).second) && (!first.emplace(rhs.vertex_two).second) && (!first.emplace(rhs.vertex_three).second);
+            return this->id == rhs.id;
         }
     };
     struct Vertex {
         std::set<unsigned int> triangles;
+        std::set<unsigned int> neighs;
         struct Point {
             double x;
             double y;
@@ -119,19 +120,35 @@ namespace PointLocation {
             Point point;
             double64x2_t matrix;
         };
+        size_t degree() const {
+            return neighs.size();
+        }
         unsigned int id;
         bool removed;
-        Vertex();
-        Vertex(double x, double y);
-        Vertex(double x, double y, unsigned int id);
-        Vertex(double x, double y, unsigned int id, bool removed);
-        void add_triangle(unsigned int triangle_id);
-        void remove_triangle(unsigned int triangle_id);
+        bool forbidden;
+        inline Vertex() : triangles(), neighs(), point{ 0, 0 }, id(-1), removed(false), forbidden(false) {
+        }
+        inline Vertex(double x, double y) : triangles(), neighs(), point{ x, y }, id(-1), removed(false), forbidden(false) {}
+        inline Vertex(double x, double y, unsigned int id) : triangles(), neighs(), point{ x, y }, id(id), removed(false), forbidden(false) {}
+        inline Vertex(double x, double y, unsigned int id, bool removed, bool forbidden) : triangles(), neighs(), point{ x, y }, id(id), removed(removed), forbidden(forbidden) {
+        }
+        
+        inline void add_triangle(unsigned int triangle_id) {
+            this->triangles.emplace(triangle_id);
+        }
+        
+        inline void remove_triangle(unsigned int triangle_id) {
+            this->triangles.erase(triangle_id);
+        }
     };
     struct RemovedVertexInfo {
         std::vector<unsigned int> old_triangle_ids;
         // Array of point ID's
         std::vector<unsigned int> polygon;
+        const Vertex& removed;
+        RemovedVertexInfo(const Vertex& removed) : old_triangle_ids(), polygon(), removed(removed) {
+            
+        }
     };
 
     class DirectedAcyclicGraph {
@@ -145,21 +162,17 @@ namespace PointLocation {
     };
 
     class PlanarGraph {
+        private:
+            std::shared_ptr<triangulateio> real_graph;
         public:
             PlanarGraph();
             PlanarGraph(std::shared_ptr<triangulateio> input);
             std::vector<Vertex> vertices;
-            std::vector<std::set<unsigned int>> adjacency_list;
+            // std::vector<std::set<unsigned int>> adjacency_list;
             std::vector<Triangle> all_triangles;
             std::vector<std::set<unsigned int>> triangulations;
             unsigned int num_vertices;
             unsigned int add_vertex(double x, double y);
-            inline std::set<unsigned int>& neighbhors(unsigned int vertex_id) {
-                // We know that if the vertex id is a valid vertex, then it must be less than the
-                // number of vertices we have 
-                return this->adjacency_list[vertex_id];
-            }
-            unsigned int degree(unsigned int vertex_id);
             void add_directed_edge(unsigned int first_vertex, unsigned int second_vertex);
             void remove_directed_edge(unsigned int first_vertex, unsigned int second_vertex);
             void connect_vertices(unsigned int first_vertex, unsigned int second_vertex);
@@ -167,7 +180,7 @@ namespace PointLocation {
             std::vector<unsigned int> find_independant_set(); 
             std::vector<Triangle> get_triangulation(const std::vector<unsigned int>& polygon);
             std::vector<unsigned int> triangulate_polygon(const std::vector<unsigned int>& polygon);
-            void remove_vertices(std::vector<unsigned int> vertices, std::shared_ptr<DirectedAcyclicGraph> dag);
+            void remove_vertices(const std::vector<unsigned int>& vertices, std::shared_ptr<DirectedAcyclicGraph> dag);
             bool triangles_intersect(unsigned int first, unsigned int second);
     };
     
@@ -186,7 +199,7 @@ namespace PointLocation {
         double64x2_t d = (b - a) * (c2 - a2);
         return d[0] - d[1];
     };
-    inline constexpr bool point_inside_triangle(const double64x2_t p, const double64x2_t p1, const double64x2_t p2, const double64x2_t p3) {
+    inline constexpr bool point_inside_triangle(const double64x2_t& p, const double64x2_t& p1, const double64x2_t& p2, const double64x2_t& p3) {
         return ((ccw(p1, p2, p) > 0) && (ccw(p2, p3, p) > 0) && (ccw(p3, p1, p) > 0));
     };
     inline constexpr bool sides_intersect(const double64x2_t a, const double64x2_t b, const double64x2_t c, const double64x2_t d) {

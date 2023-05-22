@@ -3,6 +3,7 @@
 #ifndef TRIANGLEMANIPULATOR_HPP_
 #define TRIANGLEMANIPULATOR_HPP_
 
+#include <numbers>
 #include <functional>
 #include <stdlib.h>
 #include <vector>
@@ -245,7 +246,7 @@ namespace TriangleManipulator {
             }
     };
     inline std::shared_ptr<triangulateio> create_instance() {
-        std::shared_ptr<triangulateio> res = std::shared_ptr<triangulateio>(new triangulateio());
+        std::shared_ptr<triangulateio> res = std::make_shared<triangulateio>();//std::shared_ptr<triangulateio>(new triangulateio());
         res->pointlist = nullptr;
         res->pointattributelist = nullptr;
         res->pointmarkerlist = nullptr;
