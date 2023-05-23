@@ -306,7 +306,6 @@ namespace TriangleManipulator {
                     memcpy(out_markers_ptr, markers_ptr + i * 2, sizeof(int) * 2);
                     out_markers_ptr++;
                 }
-
             }
         }
         output->numberofedges = num_found_edges;

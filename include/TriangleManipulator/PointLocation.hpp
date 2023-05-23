@@ -110,8 +110,8 @@ namespace PointLocation {
         }
     };
     struct Vertex {
-        std::set<unsigned int> triangles;
-        std::set<unsigned int> neighs;
+        std::vector<unsigned int> triangles;
+        std::vector<unsigned int> neighs;
         struct Point {
             double x;
             double y;
@@ -134,11 +134,11 @@ namespace PointLocation {
         }
         
         inline void add_triangle(unsigned int triangle_id) {
-            this->triangles.emplace(triangle_id);
+            this->triangles.emplace_back(triangle_id);
         }
-        
+
         inline void remove_triangle(unsigned int triangle_id) {
-            this->triangles.erase(triangle_id);
+            std::erase(this->triangles, triangle_id);
         }
     };
     struct RemovedVertexInfo {
@@ -154,23 +154,21 @@ namespace PointLocation {
     class DirectedAcyclicGraph {
         public:
             unsigned int root;
-            std::map<unsigned int, std::set<unsigned int>> graph;
+            std::map<unsigned int, std::vector<unsigned int>> graph;
             DirectedAcyclicGraph();
             void add_directed_edge(unsigned int first, unsigned int second);
-            std::set<unsigned int>& neighbhors(unsigned int n);
+            const std::vector<unsigned int>& neighbhors(unsigned int n);
             void write_to_file(std::string base_name);
     };
 
     class PlanarGraph {
-        private:
-            std::shared_ptr<triangulateio> real_graph;
         public:
             PlanarGraph();
             PlanarGraph(std::shared_ptr<triangulateio> input);
             std::vector<Vertex> vertices;
             // std::vector<std::set<unsigned int>> adjacency_list;
             std::vector<Triangle> all_triangles;
-            std::vector<std::set<unsigned int>> triangulations;
+            std::vector<std::unordered_set<unsigned int>> triangulations;
             unsigned int num_vertices;
             unsigned int add_vertex(double x, double y);
             void add_directed_edge(unsigned int first_vertex, unsigned int second_vertex);

@@ -122,13 +122,13 @@ int main() {
 std::shared_ptr<triangulateio> test = TriangleManipulator::create_instance();
     TriangleManipulator::read_poly_file("test.poly", test);
     TriangleManipulator::read_ele_file("test.ele", test);
-    TriangleManipulator::write_poly_file("testa.poly", test);
     PointLocation::GraphInfo info = PointLocation::GraphInfo(test);
     std::shared_ptr<triangulateio> other = TriangleManipulator::create_instance();
     info.process();
     TriangleManipulator::read_ele_file("test.ele", other);
     info.map_triangles(other);
     info.write_to_file("Planar");
-    int a = info.locate_point(PointLocation::Vertex::Point{ 44, -28 });
+    int a = info.locate_point(PointLocation::Vertex::Point{ 0.5,  0.6});
+    std::cout << a << std::endl;
     PointLocation::Triangle& b = info.planar_graph->all_triangles[a];
 }
