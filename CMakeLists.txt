@@ -3,7 +3,7 @@
 
 
 cmake_minimum_required (VERSION 3.5)
-add_definitions(-std=c++20 -O4 -mfma -Wall -g)
+add_definitions(-std=c++20 -O4 -Wall -g)
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_EXE_LINKER_FLAGS "-static")

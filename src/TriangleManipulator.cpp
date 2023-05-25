@@ -581,6 +581,28 @@ namespace TriangleManipulator {
         writer.close();
     }
 
+     void write_neigh_file_binary(std::string filename, std::shared_ptr<triangulateio> out) {
+        binary_writer<> writer = binary_writer<>(filename.c_str());
+        const unsigned int triangles = out->numberoftriangles;
+        const int* neighbors_ptr = out->neighborlist.get();
+        writer.write(triangles);
+        if (triangles > 0) {
+            writer.write_array(neighbors_ptr, triangles * 3);
+        }
+        writer.close();
+     }
+
+     void read_neigh_file_binary(std::string filename, std::shared_ptr<triangulateio> in) {
+        binary_reader<> reader = binary_reader<>(filename.c_str());
+        const unsigned int triangles = reader.read<unsigned int>();
+        in->numberoftriangles = triangles;
+
+        in->neighborlist = trimalloc<int>(in->numberoftriangles * 3);
+        int* neighbors_ptr = in->neighborlist.get();
+        reader.read_array(neighbors_ptr, triangles * 3);
+        reader.close();
+    }
+
     void write_neigh_file(std::string filename, std::shared_ptr<triangulateio> out) {
         fmt::v8::ostream file = fmt::output_file(filename.c_str());
         const unsigned int triangles = out->numberoftriangles;

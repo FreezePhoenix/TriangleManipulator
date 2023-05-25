@@ -361,15 +361,114 @@ namespace PointLocation {
         }
     }
     void GraphInfo::read_from_binary_file(std::string filename) {
-        // NYI
+        TriangleManipulator::binary_reader<> reader = TriangleManipulator::binary_reader<>(filename.c_str());
+        this->directed_graph->root = reader.read<unsigned int>();
+        size_t directed_graph_size = reader.read<size_t>();
+        for (size_t i = 0; i < directed_graph_size; i++) {
+            unsigned int first = reader.read<unsigned int>();
+            size_t second_size = reader.read<size_t>();
+            directed_graph->graph.emplace(first, second_size);
+            
+            std::vector<unsigned int>& value = directed_graph->graph[first];
+            value.reserve(second_size);
+            for (size_t j = 0; j < second_size; j++) {
+                value.emplace_back(reader.read<unsigned int>());
+            }
+        }
+        size_t planar_graph_vertices_size = reader.read<size_t>();
+        planar_graph->vertices.reserve(planar_graph_vertices_size);
+        for (size_t i = 0; i < planar_graph_vertices_size; i++) {
+            Vertex& vertex = planar_graph->vertices.emplace_back();
+            size_t triangles_size = reader.read<size_t>();
+            vertex.triangles.resize(triangles_size);
+            reader.read_array(vertex.triangles.data(), vertex.triangles.size());
+            
+            size_t neighs_size = reader.read<size_t>();
+            vertex.neighs.resize(neighs_size);
+            reader.read_array(vertex.neighs.data(), vertex.neighs.size());
+            // for (size_t j = 0; j < neighs_size; j++) {
+            //     vertex.neighs.emplace_back(reader.read<unsigned int>());
+            // }
+            reader.read(vertex.point);
+            
+            reader.read(vertex.id);
+            
+            reader.read(vertex.removed);
+            reader.read(vertex.forbidden);
+        }
+        size_t triangle_count = reader.read<size_t>();
+        planar_graph->all_triangles.resize(triangle_count);
+        reader.read_array(planar_graph->all_triangles.data(), planar_graph->all_triangles.size());
+        
+        size_t triangulations_count = reader.read<size_t>();
+        planar_graph->triangulations.reserve(triangulations_count);
+
+        for (size_t i = 0; i < triangulations_count; i++) {
+            size_t triangulation_size = reader.read<size_t>();
+            std::unordered_set<unsigned int>& triangulation = planar_graph->triangulations.emplace_back();
+            triangulation.reserve(triangulation_size);
+            for (size_t j = 0; j < triangulation_size; j++) {
+                triangulation.emplace(reader.read<unsigned int>());
+            }
+        }
+        reader.read(this->planar_graph->num_vertices);
+        size_t map_size = reader.read<size_t>();
+        for (size_t i = 0; i < map_size; i++) {
+            unsigned int first = reader.read<unsigned int>();
+            unsigned int second = reader.read<unsigned int>();
+            unsigned int third = reader.read<unsigned int>();
+            unsigned int value = reader.read<unsigned int>();
+            this->triangle_map.emplace(std::make_tuple(first, second, third), value);
+        }
+        reader.close();
     }
     void GraphInfo::write_to_binary_file(std::string filename) {
-        // TriangleManipulator::binary_writer<> writer = TriangleManipulator::binary_writer<>(filename.c_str());
-        // writer.write(this->directed_graph->root);
-        // size_t i = this->directed_graph->graph.size();
-        // writer.write(i);
-        // for(const std::pair<unsigned int, std::vector<unsigned int>>&)
-        // NYI
+        TriangleManipulator::binary_writer<> writer = TriangleManipulator::binary_writer<>(filename.c_str());
+        writer.write(this->directed_graph->root);
+        writer.write(this->directed_graph->graph.size());
+        for (const auto& entry : this->directed_graph->graph) {
+            writer.write(entry.first);
+            writer.write(entry.second.size());
+            for (const auto& neigh : entry.second) {
+                writer.write(neigh);
+            }
+        }
+        writer.write(this->planar_graph->vertices.size());
+        for (const auto& vertex : this->planar_graph->vertices) {
+
+            writer.write(vertex.triangles.size());
+            writer.write_array(vertex.triangles.data(), vertex.triangles.size());
+            
+            writer.write(vertex.neighs.size());
+            writer.write_array(vertex.neighs.data(), vertex.neighs.size());
+
+            writer.write(vertex.point);
+            
+            writer.write(vertex.id);
+
+            writer.write(vertex.removed);
+            writer.write(vertex.forbidden);
+        }
+        
+        writer.write(this->planar_graph->all_triangles.size());
+        writer.write_array(this->planar_graph->all_triangles.data(), this->planar_graph->all_triangles.size());
+        
+        writer.write(this->planar_graph->triangulations.size());
+        for (const auto& triangulation : this->planar_graph->triangulations) {
+            writer.write(triangulation.size());
+            for (const auto& tri : triangulation) {
+                writer.write(tri);
+            }
+        }
+        writer.write(this->planar_graph->num_vertices);
+        writer.write(this->triangle_map.size());
+        for (const auto& entry : this->triangle_map) {
+            writer.write(std::get<0>(entry.first));
+            writer.write(std::get<1>(entry.first));
+            writer.write(std::get<2>(entry.first));
+            writer.write(entry.second);
+        }
+        writer.close();
     }
     void GraphInfo::write_to_file(std::string base_filename) {
         // NYI

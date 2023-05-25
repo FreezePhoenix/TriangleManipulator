@@ -66,8 +66,7 @@ namespace TriangleManipulator {
              */
             template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
             inline void write(T arg) {
-                std::align(alignment, 0, head, remaining);
-                if (remaining < sizeof(T)) {
+                if (std::align(alignment, sizeof(T), head, remaining) == nullptr) {
                     flush();
                 }
                 std::memcpy(head, (void*)&arg, sizeof(T));
@@ -82,32 +81,20 @@ namespace TriangleManipulator {
              */
             template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
             inline void write(T* arg) {
-                std::align(alignment, 0, head, remaining);
-                if (remaining < sizeof(T)) {
+                if (std::align(alignment, sizeof(T), head, remaining) == nullptr) {
                     flush();
                 }
-                remaining -= sizeof(T);
                 std::memcpy(head, arg, sizeof(T));
                 head = (char*)head + sizeof(T);
+                remaining -= sizeof(T);
                 
             }
             template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), size_t block_size = buffer_size / sizeof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment> && is_power_two_v<sizeof(T)>, bool> = true>
-            inline void write_array(T* arg, size_t length) {
-                // Align the head pointer to the type's alignment.
-                std::align(alignment, 0, head, remaining);
-                if (length * sizeof(T) > remaining) {
-                    // Flush the buffer.
-                    flush();
-                    // Write all of the array directly to the file that we can.
-                    size_t blocks = length / block_size;
-                    length %= block_size;
-                    std::fwrite(arg, sizeof(char), (block_size * sizeof(T)) * blocks, file);
-                    arg += block_size * blocks;
+            inline void write_array(T * arg, size_t length) {
+                // TODO: More efficient implementation
+                for (size_t i = 0; i < length; i++) {
+                    write(&arg[i]);
                 }
-                // Write the rest to the buffer.
-                std::memcpy(head, (void*)arg, sizeof(T) * length);
-                head = (char*)head + sizeof(T) * length;
-                remaining -= sizeof(T) * length;
             }
             /**
              * @brief Close the file. Flushes it, and invalidates the writer. Does not automatically cleanup the buffer.
@@ -139,11 +126,13 @@ namespace TriangleManipulator {
              */
             inline void flush() {
                 if (remaining > 0) {
-                    std::memcpy(buffer, head, remaining);
+                    std::memmove(buffer, head, remaining);
+                    std::memset(head, 0, remaining);
+                    std::fread(buffer + remaining, sizeof(char), buffer_size - remaining, file);
+                } else {
+                    fread(buffer, sizeof(char), buffer_size, file);
                 }
                 head = buffer;
-                std::memset(buffer + remaining, '\x0', buffer_size - remaining);
-                std::fread(buffer + remaining, sizeof(char), buffer_size - remaining, file);
                 remaining = buffer_size;
             }
             /**
@@ -174,8 +163,7 @@ namespace TriangleManipulator {
              */
             template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
             inline void read(T& arg) {
-                std::align(alignment, 0, head, remaining);
-                if (remaining < sizeof(T)) {
+                if (std::align(alignment, sizeof(T), head, remaining) == nullptr) {
                     flush();
                 }
                 const T& res = *reinterpret_cast<T*>(head);
@@ -191,8 +179,7 @@ namespace TriangleManipulator {
              */
             template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
             inline void read(T* arg) {
-                std::align(alignment, 0, head, remaining);
-                if (remaining < sizeof(T)) {
+                if (std::align(alignment, sizeof(T), head, remaining) == nullptr) {
                     flush();
                 }
                 std::memcpy(arg, head, sizeof(T));
@@ -207,8 +194,7 @@ namespace TriangleManipulator {
              */
             template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
             inline const T& read() {
-                std::align(alignment, 0, head, remaining);
-                if (remaining < sizeof(T)) {
+                if (std::align(alignment, sizeof(T), head, remaining) == nullptr) {
                     flush();
                 }
                 const T& res = *reinterpret_cast<T*>(head);
@@ -217,23 +203,11 @@ namespace TriangleManipulator {
                 return res;
             }
             template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), size_t block_size = buffer_size / sizeof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment> && is_power_two_v<sizeof(T)>, bool> = true>
-            inline void read_array(T* arg, size_t length) {
-                std::align(alignment, 0, head, remaining);
-                if (length >= block_size) {
-                    std::fseek(file, -remaining, SEEK_CUR);
-                    const size_t blocks = length / block_size;
-                    arg += std::fread(arg, sizeof(T), block_size * blocks, file);
-                    length %= block_size;
-                    flush_full();
-                    std::memcpy(arg, head, sizeof(T) * length);
-                    head = (char*)head + sizeof(T) * length;
-                    remaining -= sizeof(T) * length;
-                    return;
+            inline void read_array(T * arg, size_t length) {
+                // TODO: More efficient impl
+                for (size_t i = 0; i < length; i++) {
+                    read(&arg[i]);
                 }
-                flush();
-                std::memcpy(arg, head, sizeof(T) * length);
-                head = (char*) head + sizeof(T) * length;
-                remaining -= sizeof(T) * length;
             }
             /**
              * @brief Close the file. Invalidates the reader. Does not automatically cleanup the buffer.
@@ -393,6 +367,10 @@ namespace TriangleManipulator {
 
     void read_edge_file_binary(std::string filename, std::shared_ptr<triangulateio> in);
     void write_edge_file_binary(std::string filename, std::shared_ptr<triangulateio> out);
+
+    
+    void read_neigh_file_binary(std::string filename, std::shared_ptr<triangulateio> in);
+    void write_neigh_file_binary(std::string filename, std::shared_ptr<triangulateio> out);
 }
 
 #endif /* TRIANGLEMANIPULATOR_HPP_ */
