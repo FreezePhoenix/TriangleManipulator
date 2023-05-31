@@ -100,14 +100,10 @@ namespace PointLocation {
             unsigned int vertex_one;
             unsigned int vertex_two;
             unsigned int vertex_three;
-            unsigned int id;
         };
-        unsigned int vertices[4];
-        constexpr Triangle(unsigned int a, unsigned int b, unsigned int c, unsigned int id) : vertices{ a, b, c, id} {}
-        constexpr Triangle() : vertices{ 0, 0, 0, 0 } {}
-        inline bool operator==(const Triangle& rhs) {
-            return this->id == rhs.id;
-        }
+        unsigned int vertices[3];
+        constexpr Triangle(unsigned int a, unsigned int b, unsigned int c) : vertices{ a, b, c } {}
+        constexpr Triangle() : vertices{ 0, 0, 0 } {}
     };
     struct Vertex {
         std::vector<unsigned int> triangles;
@@ -123,18 +119,19 @@ namespace PointLocation {
         size_t degree() const {
             return neighs.size();
         }
-        unsigned int id;
         bool removed;
         bool forbidden;
-        inline Vertex() : triangles(), neighs(), point{ 0, 0 }, id(-1), removed(false), forbidden(false) {
+        inline Vertex() : triangles(), neighs(), point{ 0, 0 }, removed(false), forbidden(false) {
         }
-        inline Vertex(double x, double y) : triangles(), neighs(), point{ x, y }, id(-1), removed(false), forbidden(false) {}
-        inline Vertex(double x, double y, unsigned int id) : triangles(), neighs(), point{ x, y }, id(id), removed(false), forbidden(false) {}
-        inline Vertex(double x, double y, unsigned int id, bool removed, bool forbidden) : triangles(), neighs(), point{ x, y }, id(id), removed(removed), forbidden(forbidden) {
+        inline Vertex(double x, double y) : triangles(), neighs(), point{ x, y }, removed(false), forbidden(false) {
         }
-        
+        inline Vertex(double x, double y, bool removed, bool forbidden) : triangles(), neighs(), point{ x, y }, removed(removed), forbidden(forbidden) {
+        }
+        inline Vertex(size_t triangles_size, size_t neighs_size, double x, double y, bool removed, bool forbidden) : triangles(triangles_size), neighs(neighs_size), point{ x, y }, removed(removed), forbidden(forbidden) {
+
+        }
         inline void add_triangle(unsigned int triangle_id) {
-            this->triangles.emplace_back(triangle_id);
+            this->triangles.push_back(triangle_id);
         }
 
         inline void remove_triangle(unsigned int triangle_id) {
@@ -154,7 +151,7 @@ namespace PointLocation {
     class DirectedAcyclicGraph {
         public:
             unsigned int root;
-            std::map<unsigned int, std::vector<unsigned int>> graph;
+            std::vector<std::vector<unsigned int>> graph;
             DirectedAcyclicGraph();
             void add_directed_edge(unsigned int first, unsigned int second);
             const std::vector<unsigned int>& neighbhors(unsigned int n);
@@ -170,7 +167,7 @@ namespace PointLocation {
             std::vector<Triangle> all_triangles;
             std::vector<std::unordered_set<unsigned int>> triangulations;
             unsigned int num_vertices;
-            unsigned int add_vertex(double x, double y);
+            void add_vertex(double x, double y);
             void add_directed_edge(unsigned int first_vertex, unsigned int second_vertex);
             void remove_directed_edge(unsigned int first_vertex, unsigned int second_vertex);
             void connect_vertices(unsigned int first_vertex, unsigned int second_vertex);
@@ -208,7 +205,7 @@ namespace PointLocation {
         public:
             std::shared_ptr<PlanarGraph> planar_graph;
             std::shared_ptr<DirectedAcyclicGraph> directed_graph;
-            std::map<std::tuple<unsigned int, unsigned int, unsigned int>, unsigned int> triangle_map;
+            std::vector<unsigned int> triangle_map;
             GraphInfo() : planar_graph(new PlanarGraph()), directed_graph(new DirectedAcyclicGraph()), triangle_map() {};
             GraphInfo(std::shared_ptr<triangulateio> input) : planar_graph(new PlanarGraph(input)), directed_graph(new DirectedAcyclicGraph()), triangle_map() {};
             void process();

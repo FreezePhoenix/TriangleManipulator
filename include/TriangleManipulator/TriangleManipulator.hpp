@@ -65,7 +65,7 @@ namespace TriangleManipulator {
              * @tparam alignment The alignment to write with. You almost always won't need to set this.
              */
             template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
-            inline void write(T arg) {
+            inline void write(const T& arg) {
                 if (std::align(alignment, sizeof(T), head, remaining) == nullptr) {
                     flush();
                 }
@@ -89,11 +89,11 @@ namespace TriangleManipulator {
                 remaining -= sizeof(T);
                 
             }
-            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), size_t block_size = buffer_size / sizeof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment> && is_power_two_v<sizeof(T)>, bool> = true>
+            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
             inline void write_array(T * arg, size_t length) {
                 // TODO: More efficient implementation
                 for (size_t i = 0; i < length; i++) {
-                    write(&arg[i]);
+                    write(arg[i]);
                 }
             }
             /**
@@ -127,10 +127,9 @@ namespace TriangleManipulator {
             inline void flush() {
                 if (remaining > 0) {
                     std::memmove(buffer, head, remaining);
-                    std::memset(head, 0, remaining);
                     std::fread(buffer + remaining, sizeof(char), buffer_size - remaining, file);
                 } else {
-                    fread(buffer, sizeof(char), buffer_size, file);
+                    std::fread(buffer, sizeof(char), buffer_size, file);
                 }
                 head = buffer;
                 remaining = buffer_size;
@@ -156,37 +155,6 @@ namespace TriangleManipulator {
                 flush();
             };
             /**
-             * @brief Read a value from file. Assigns the value to the reference argument. Should only be used with Primitives and POD structures.
-             * 
-             * @tparam T The type of the value to read. You probably don't need to set this.
-             * @tparam alignment The alignment to read with. You almost always won't need to set this.
-             */
-            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
-            inline void read(T& arg) {
-                if (std::align(alignment, sizeof(T), head, remaining) == nullptr) {
-                    flush();
-                }
-                const T& res = *reinterpret_cast<T*>(head);
-                head = (char*) head + sizeof(T);
-                remaining -= sizeof(T);
-                arg = res;
-            };
-            /**
-             * @brief Read a value from file. Directly assigns the value to the pointer argument. Should only be used with Primitives and POD structures.
-             * 
-             * @tparam T The type of the value to read. You probably don't need to set this.
-             * @tparam alignment The alignment to read with. You almost always won't need to set this.
-             */
-            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
-            inline void read(T* arg) {
-                if (std::align(alignment, sizeof(T), head, remaining) == nullptr) {
-                    flush();
-                }
-                std::memcpy(arg, head, sizeof(T));
-                head = (char*)head + sizeof(T);
-                remaining -= sizeof(T);
-            };
-            /**
              * @brief Read a value from file. Returns the value. Should only be used with Primitives and POD structures.
              * 
              * @tparam T The type of the value to read. You probably don't need to set this.
@@ -200,13 +168,34 @@ namespace TriangleManipulator {
                 const T& res = *reinterpret_cast<T*>(head);
                 head = (char*) head + sizeof(T);
                 remaining -= sizeof(T);
-                return res;
+                return std::move(res);
             }
-            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), size_t block_size = buffer_size / sizeof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment> && is_power_two_v<sizeof(T)>, bool> = true>
+
+            /**
+             * @brief Read a value from file. Assigns the value to the reference argument. Should only be used with Primitives and POD structures.
+             * 
+             * @tparam T The type of the value to read. You probably don't need to set this.
+             * @tparam alignment The alignment to read with. You almost always won't need to set this.
+             */
+            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
+            inline void read(T & arg) {
+                arg = std::move(read<T, alignment>());
+            };
+            /**
+             * @brief Read a value from file. Directly assigns the value to the pointer argument. Should only be used with Primitives and POD structures.
+             * 
+             * @tparam T The type of the value to read. You probably don't need to set this.
+             * @tparam alignment The alignment to read with. You almost always won't need to set this.
+             */
+            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
+            inline void read(T* arg) {
+                read<T, alignment>(*arg);
+            };
+            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
             inline void read_array(T * arg, size_t length) {
                 // TODO: More efficient impl
                 for (size_t i = 0; i < length; i++) {
-                    read(&arg[i]);
+                    read<T, alignment>(arg[i]);
                 }
             }
             /**
@@ -287,9 +276,7 @@ namespace TriangleManipulator {
     void filter_points(std::shared_ptr<triangulateio> input, std::shared_ptr<triangulateio> output, std::function<bool(int, REAL, REAL, REAL)> predicate);
     void inject_holes(std::shared_ptr<triangulateio> input, std::shared_ptr<triangulateio> output);
     template <typename T>
-    T parse_str(const std::string& str) {
-        return std::stof(str);
-    }
+    T parse_str(const std::string& str);
     template <typename T>
     inline std::vector<T> read_line(std::istream& stream) {
         std::string str;

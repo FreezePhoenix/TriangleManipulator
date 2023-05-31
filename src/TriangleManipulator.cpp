@@ -403,7 +403,7 @@ namespace TriangleManipulator {
             int* edge_marker_ptr = in->edgemarkerlist.get();
             for (unsigned int i = 0; i < in->numberofedges; i++) {
                 std::vector<double> line = read_line<double>(file);
-                int p1 = edge_ptr[i * 2] = line[1];
+                edge_ptr[i * 2] = line[1];
                 int p2 = edge_ptr[i* 2 + 1] =line[2];
                 if (p2 == -1) {
                     if (!is_voronoi) {
