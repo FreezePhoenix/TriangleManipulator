@@ -111,6 +111,9 @@ namespace PointLocation {
         struct Point {
             double x;
             double y;
+            inline bool operator==(const Point& other) const {
+                return x == other.x && y == other.y;
+            }
         };
         union {
             Point point;
@@ -209,7 +212,7 @@ namespace PointLocation {
             GraphInfo() : planar_graph(new PlanarGraph()), directed_graph(new DirectedAcyclicGraph()), triangle_map() {};
             GraphInfo(std::shared_ptr<triangulateio> input) : planar_graph(new PlanarGraph(input)), directed_graph(new DirectedAcyclicGraph()), triangle_map() {};
             void process();
-            int locate_point(Vertex::Point point);
+            std::optional<unsigned int> locate_point(Vertex::Point point);
             inline bool triangle_contains_point(const Vertex::Point& p, const Triangle& tri) {
                 return point_inside_triangle(p, this->planar_graph->vertices[tri.vertex_one].point, this->planar_graph->vertices[tri.vertex_two].point, this->planar_graph->vertices[tri.vertex_three].point);
             };

@@ -190,7 +190,7 @@ namespace PointLocation {
         const size_t MAX = DEGREE - 1;
         
         for (size_t i = 0; i < MAX; i++) {
-            query = pointmap.at(query);
+            query = pointmap[query];
             polygon.emplace_back(query);
         }
         
@@ -461,13 +461,13 @@ namespace PointLocation {
     void GraphInfo::write_to_file(std::string base_filename) {
         // NYI
     }
-    int GraphInfo::locate_point(Vertex::Point point) {
+    std::optional<unsigned int> GraphInfo::locate_point(Vertex::Point point) {
         if (!triangle_contains_point(point, planar_graph->all_triangles[directed_graph->root])) {
-            return -1;
+            return std::nullopt;
         }
-        int last_checked = directed_graph->root; // root
-        while (last_checked < directed_graph->graph.size() && directed_graph->graph[last_checked].size() > 0) {
-            int prev = last_checked;
+        unsigned int last_checked = directed_graph->root; // root
+        while (directed_graph->graph[last_checked].size() > 0) {
+            unsigned int prev = last_checked;
             for (unsigned int child : directed_graph->neighbhors(last_checked)) {
                 if (triangle_contains_point(point, planar_graph->all_triangles[child])) {
                     last_checked = child;
@@ -475,7 +475,7 @@ namespace PointLocation {
                 }
             }
             if (prev == last_checked) {
-                return -1;
+                return std::nullopt;
             }
         }
         return this->triangle_map[last_checked];

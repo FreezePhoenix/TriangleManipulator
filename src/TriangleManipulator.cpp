@@ -569,15 +569,10 @@ namespace TriangleManipulator {
         const unsigned int num_attributes = out->numberoftriangleattributes;
         const unsigned int* triangles_ptr = out->trianglelist.get();
         const REAL* attributes_ptr = out->triangleattributelist.get();
-        writer.write<int>(triangles);
-        writer.write<int>(num_attributes);
-        if (triangles > 0) {
-            writer.write_array(triangles_ptr, triangles * 3);
-            
-            if (num_attributes > 0) {
-                writer.write_array(attributes_ptr, triangles * num_attributes);
-            }
-        }
+        writer.write(triangles);
+        writer.write(num_attributes);
+        writer.write_array(triangles_ptr, triangles * 3);
+        writer.write_array(attributes_ptr, triangles * num_attributes);
         writer.close();
     }
 
