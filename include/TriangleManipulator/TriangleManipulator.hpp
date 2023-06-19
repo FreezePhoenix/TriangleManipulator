@@ -80,7 +80,7 @@ namespace TriangleManipulator {
              * @tparam alignment The alignment to write with. You almost always won't need to set this.
              */
             template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
-            inline void write(T* arg) {
+            inline void write(const T* arg) {
                 if (std::align(alignment, sizeof(T), head, remaining) == nullptr) {
                     flush();
                 }
@@ -90,10 +90,10 @@ namespace TriangleManipulator {
                 
             }
             template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
-            inline void write_array(T * arg, size_t length) {
+            inline void write_array(const T* arg, size_t length) {
                 // TODO: More efficient implementation
                 for (size_t i = 0; i < length; i++) {
-                    write(arg[i]);
+                    write<T, alignment>(arg++);
                 }
             }
             /**
@@ -138,7 +138,7 @@ namespace TriangleManipulator {
              * @brief Flush the buffer completely. Discards any excess data, and completely overwrites it.
              * 
              */
-            inline void flush_full() {
+            inline void flush_full() {+
                 head = buffer;
                 remaining = std::fread(buffer, sizeof(char), buffer_size, file);
             }
@@ -168,7 +168,7 @@ namespace TriangleManipulator {
                 const T& res = *reinterpret_cast<T*>(head);
                 head = (char*) head + sizeof(T);
                 remaining -= sizeof(T);
-                return std::move(res);
+                return res;
             }
 
             /**
@@ -178,8 +178,8 @@ namespace TriangleManipulator {
              * @tparam alignment The alignment to read with. You almost always won't need to set this.
              */
             template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
-            inline void read(T & arg) {
-                arg = std::move(read<T, alignment>());
+            inline void read(T& arg) {
+                arg = read<T, alignment>();
             };
             /**
              * @brief Read a value from file. Directly assigns the value to the pointer argument. Should only be used with Primitives and POD structures.
@@ -188,14 +188,25 @@ namespace TriangleManipulator {
              * @tparam alignment The alignment to read with. You almost always won't need to set this.
              */
             template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
+                requires (!std::is_trivially_copyable_v<T>)
             inline void read(T* arg) {
                 read<T, alignment>(*arg);
+            };
+            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
+                requires (std::is_trivially_copyable_v<T>)
+            inline void read(T * arg) {
+                if (std::align(alignment, sizeof(T), head, remaining) == nullptr) {
+                    flush();
+                }
+                std::memcpy(arg, head, sizeof(T));
+                head = (char*) head + sizeof(T);
+                remaining -= sizeof(T);
             };
             template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
             inline void read_array(T * arg, size_t length) {
                 // TODO: More efficient impl
                 for (size_t i = 0; i < length; i++) {
-                    read<T, alignment>(arg[i]);
+                    read<T, alignment>(arg++);
                 }
             }
             /**

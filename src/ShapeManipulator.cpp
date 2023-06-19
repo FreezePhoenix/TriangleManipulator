@@ -42,7 +42,7 @@ namespace ShapeManipulator {
             new_holes->push_back(y);
             input = _output;
             input->numberofholes = iteration + starting_holes;
-            input->holelist = std::shared_ptr<double>(holes->data(), [](void*) {});
+            input->holelist = std::shared_ptr<double[]>(holes->data(), [](void*) {});
             triangulate("pvzXEQD", input, _output, triangle_vobject);
             TriangleManipulator::write_poly_file("Maps/abtesting.object.1." + std::to_string(iteration) + ".poly", input);
         } while(triangle_vobject->numberofpoints != 0);

@@ -8,10 +8,13 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include "flat_multimap.hpp"
 #include <set>
+#include <optional>
 #include <memory>
 #include <iostream>
 #include <cmath>
+#include <ranges>
 
 namespace PointLocation {
     typedef double double64x2_t __attribute__((__vector_size__(16)));
@@ -33,7 +36,7 @@ namespace PointLocation {
             short y;
         };
         unsigned int hash;
-        const bool operator==(const Point& other) {
+        const bool operator==(const Point& other) const {
             return other.hash == this->hash;
         }
         inline double angle(const Point& p2) {
@@ -62,27 +65,13 @@ namespace PointLocation {
         constexpr Line() : hash{0} {
             // this->hash = 0;
         }
-        constexpr Line(Point& first, Point& second) {
-            if (first.x < second.x || first.y < second.y) {
-                this->first = first;
-                this->second = second;
-            } else {
-                this->first = second;
-                this->second = first;
-            }
+        constexpr Line(Point& first, Point& second): first(first), second(second) {
         }
-        constexpr Line(const Point& first, const Point& second) {
-            if (first.x < second.x || first.y < second.y) {
-                this->first = first;
-                this->second = second;
-            } else {
-                this->first = second;
-                this->second = first;
-            }
+        constexpr Line(const Point& first, const Point& second): first(first), second(second) {
         }
         constexpr Line(short x1, short y1, short x2, short y2) : Line{Point {x1, y1}, Point{x2, y2}} {
         }
-        constexpr bool operator==(const Line& other) {
+        constexpr bool operator==(const Line& other) const {
             return other.hash == this->hash;
         }
     };
@@ -111,7 +100,7 @@ namespace PointLocation {
         struct Point {
             double x;
             double y;
-            inline bool operator==(const Point& other) const {
+            constexpr bool operator==(const Point& other) const {
                 return x == other.x && y == other.y;
             }
         };
@@ -154,11 +143,15 @@ namespace PointLocation {
     class DirectedAcyclicGraph {
         public:
             unsigned int root;
-            std::vector<std::vector<unsigned int>> graph;
+            flat_multimap<unsigned int, unsigned int> graph;
             DirectedAcyclicGraph();
-            void add_directed_edge(unsigned int first, unsigned int second);
-            const std::vector<unsigned int>& neighbhors(unsigned int n);
-            void write_to_file(std::string base_name);
+            void add_directed_edge(unsigned int first, unsigned int second) {
+                graph.insert({ first, second });
+            }
+            auto neighbhors(unsigned int n) const {
+                const auto [first, last] = graph.equal_range(n);
+                return std::ranges::subrange(first, last) | std::views::values;
+            }
     };
 
     class PlanarGraph {
@@ -168,7 +161,7 @@ namespace PointLocation {
             std::vector<Vertex> vertices;
             // std::vector<std::set<unsigned int>> adjacency_list;
             std::vector<Triangle> all_triangles;
-            std::vector<std::unordered_set<unsigned int>> triangulations;
+            std::vector<size_t> triangulations;
             unsigned int num_vertices;
             void add_vertex(double x, double y);
             void add_directed_edge(unsigned int first_vertex, unsigned int second_vertex);
@@ -176,10 +169,10 @@ namespace PointLocation {
             void connect_vertices(unsigned int first_vertex, unsigned int second_vertex);
             RemovedVertexInfo remove_vertex(unsigned int vertex_id);
             std::vector<unsigned int> find_independant_set(); 
-            std::vector<Triangle> get_triangulation(const std::vector<unsigned int>& polygon);
+            std::vector<Triangle> get_triangulation(const std::vector<unsigned int>& polygon) const;
             std::vector<unsigned int> triangulate_polygon(const std::vector<unsigned int>& polygon);
-            void remove_vertices(const std::vector<unsigned int>& vertices, std::shared_ptr<DirectedAcyclicGraph> dag);
-            bool triangles_intersect(unsigned int first, unsigned int second);
+            void remove_vertices(const std::vector<unsigned int>& vertices, DirectedAcyclicGraph& dag);
+            bool triangles_intersect(unsigned int first, unsigned int second) const;
     };
     
     inline constexpr double ccw(const Vertex::Point& a, const Vertex::Point& b, const Vertex::Point& c) { 
@@ -206,36 +199,30 @@ namespace PointLocation {
     };
     class GraphInfo {
         public:
-            std::shared_ptr<PlanarGraph> planar_graph;
-            std::shared_ptr<DirectedAcyclicGraph> directed_graph;
+            PlanarGraph planar_graph;
+            DirectedAcyclicGraph directed_graph;
             std::vector<unsigned int> triangle_map;
-            GraphInfo() : planar_graph(new PlanarGraph()), directed_graph(new DirectedAcyclicGraph()), triangle_map() {};
-            GraphInfo(std::shared_ptr<triangulateio> input) : planar_graph(new PlanarGraph(input)), directed_graph(new DirectedAcyclicGraph()), triangle_map() {};
+            GraphInfo() : planar_graph(), directed_graph(), triangle_map() {};
+            GraphInfo(std::shared_ptr<triangulateio> input) : planar_graph(input), directed_graph(), triangle_map() {};
             void process();
-            std::optional<unsigned int> locate_point(Vertex::Point point);
-            inline bool triangle_contains_point(const Vertex::Point& p, const Triangle& tri) {
-                return point_inside_triangle(p, this->planar_graph->vertices[tri.vertex_one].point, this->planar_graph->vertices[tri.vertex_two].point, this->planar_graph->vertices[tri.vertex_three].point);
+            std::optional<unsigned int> locate_point(Vertex::Point point) const;
+            inline bool triangle_contains_point(const Vertex::Point& p, const Triangle& tri) const {
+                const auto& vertices = this->planar_graph.vertices;
+                return point_inside_triangle(p, vertices[tri.vertex_one].point, vertices[tri.vertex_two].point, vertices[tri.vertex_three].point);
             };
             void map_triangles(std::shared_ptr<triangulateio> others);
-            void write_to_file(std::string base_filename);
-            void write_to_binary_file(std::string filename);
+            void write_to_binary_file(std::string filename) const;
             void read_from_binary_file(std::string filename);
     };
     inline constexpr void sort(unsigned int& a, unsigned int& b, unsigned int& c) {
         if (a < b) {
-            a ^= b;
-            b ^= a;
-            a ^= b;
+            std::swap(a, b);
         }
         if (b < c) {
-            b ^= c;
-            c ^= b;
-            b ^= c;
+            std::swap(b, c);
         }
         if (a < b) {
-            a ^= b;
-            b ^= a;
-            a ^= b;
+            std::swap(a, b);
         }
     }
 }
