@@ -1,13 +1,17 @@
-# CMakeList.txt : CMake project for Assembly, include source and define
-# project specific logic here.
-
-
 cmake_minimum_required (VERSION 3.5)
-add_definitions(-std=c++20 -O4 -Wall -g)
-set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-set(BUILD_SHARED_LIBS OFF)
-set(CMAKE_EXE_LINKER_FLAGS "-static")
-project("TriangleManipulator")
+project ("TriangleManipulator")
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall")
+
+
+# set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+# set(BUILD_SHARED_LIBS OFF)
+# set(CMAKE_EXE_LINKER_FLAGS "-static")
 
 add_library(TriangleManipulator_HEADERS INTERFACE)
 
@@ -20,14 +24,9 @@ add_library(TriangleManipulator OBJECT
    "src/PointLocation.cpp"
 )
 
-add_executable(TriangleManipulatorExecutable
-   "src/test.cpp"
-)
-
 set_property(TARGET TriangleManipulator PROPERTY COMPILE_OPTIONS -DTRIANGLE_MANIPULATOR_LIBRARY)
 
 add_subdirectory(lib/triangle lib/triangle EXCLUDE_FROM_ALL)
 add_subdirectory(lib/fmt lib/fmt EXCLUDE_FROM_ALL)
 
 target_link_libraries(TriangleManipulator TriangleManipulator_HEADERS Triangle fmt)
-target_link_libraries(TriangleManipulatorExecutable TriangleManipulator -static)

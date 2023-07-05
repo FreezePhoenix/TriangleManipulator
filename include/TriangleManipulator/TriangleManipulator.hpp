@@ -22,192 +22,93 @@ namespace TriangleManipulator {
     inline constexpr bool is_power_two_v = is_power_two<S>::value;
     /**
      * @brief A class to write binary data to files.
-     * 
-     * Setting compact mode to true will not give large benefits in file size. If you are writing types with sizes that are powers of 2, and the LCM and GCF of their alignments are the same, then enabling compact mode will net you nothing.
-     * If you are writing a large object, and there isn't enough space left in the buffer, the entire buffer is flushed, including any remaining space. This encourages you to write the data in as low a level as you can, preferably integers,
-     * doubles, shorts, or chars at a time. Note: Since there is no overload for writing a boolean, you are expected to write them as either entire chars or pack them into chars yourself.
-     *
-     * @tparam compact Whether or not the file should be written in compact mode. Expect lower performance with compact mode enabled, but the resulting file will be smaller (or the same size). Files must be read in the same mode as they were written.
-     * @tparam buffer_size The size of the internal buffer. An object can only be written if it's size is smaller than the buffer.
      */
-    template<bool compact = false, size_t buffer_size = 4096, std::enable_if_t<is_power_two_v<buffer_size>, bool> = true>
     class binary_writer {
         private:
-            char buffer[buffer_size];
             FILE* file;
-            void* head;
-            size_t remaining;
-            /**
-             * @brief Write the buffer to file, and clear it.
-             */
-            inline void flush() {
-                std::fwrite(buffer, sizeof(char), buffer_size - remaining, file);
-                std::memset(buffer, 0, buffer_size);
-                head = buffer;
-                remaining = buffer_size;
-            }
         public:
             /**
              * @brief Construct a new binary writer object
              * 
              * @param filename 
              */
-            binary_writer(const char* filename): buffer() {
-                head = buffer;
-                remaining = buffer_size;
+            binary_writer(const char* filename) {
                 file = std::fopen(filename, "wb");
-                std::memset(buffer, 0, buffer_size);
             };
             /**
              * @brief Write a value to file. Note: Uses copy constructor. Should only be used with Primitives and POD structures.
-             * 
-             * @tparam T The type of the value to write. You probably don't need to set this.
-             * @tparam alignment The alignment to write with. You almost always won't need to set this.
              */
-            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
+            template<typename T>
             inline void write(const T& arg) {
-                if (std::align(alignment, sizeof(T), head, remaining) == nullptr) {
-                    flush();
-                }
-                std::memcpy(head, (void*)&arg, sizeof(T));
-                head = (char*) head + sizeof(T);
-                remaining -= sizeof(T);
+                std::fwrite(&arg, sizeof(T), 1, file);
             }
             /**
              * @brief Write what's at a pointer to file. Note: Does not use copy constructor. Should only be used with Primitives and POD structures.
-             * 
-             * @tparam T The type of the value to write. You probably don't need to set this.
-             * @tparam alignment The alignment to write with. You almost always won't need to set this.
              */
-            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
+            template<typename T>
             inline void write(const T* arg) {
-                if (std::align(alignment, sizeof(T), head, remaining) == nullptr) {
-                    flush();
-                }
-                std::memcpy(head, arg, sizeof(T));
-                head = (char*)head + sizeof(T);
-                remaining -= sizeof(T);
-                
+                std::fwrite(arg, sizeof(T), 1, file);
             }
-            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
+            template<typename T>
             inline void write_array(const T* arg, size_t length) {
-                // TODO: More efficient implementation
-                for (size_t i = 0; i < length; i++) {
-                    write<T, alignment>(arg++);
-                }
+                std::fwrite(arg, sizeof(T), length, file);
             }
             /**
              * @brief Close the file. Flushes it, and invalidates the writer. Does not automatically cleanup the buffer.
              * 
              */
             inline void close() {
-                flush();
                 std::fclose(file);
-                head = nullptr;
-                remaining = 0;
             }
     };
     /**
      * @brief A class to read files written using binary_writer.
-     * 
-     * @tparam compact Whether or not the file should be read in compact mode. Expect lower performance with compact mode enabled, but the resulting file will be smaller. Files must be read in the same mode as they were written.
-     * @tparam buffer_size The size of the internal buffer. An object can only be written if it's size is smaller than the buffer.
      */
-    template<bool compact = false, size_t buffer_size = 4096, std::enable_if_t<is_power_two_v<buffer_size>, bool> = true>
     class binary_reader {
         private:
-            char buffer[buffer_size];
             FILE* file;
-            void* head;
-            size_t remaining;
-            /**
-             * @brief Flush the buffer, keeping the remaining portions of the data if the need arises.
-             * 
-             */
-            inline void flush() {
-                if (remaining > 0) {
-                    std::memmove(buffer, head, remaining);
-                    std::fread(buffer + remaining, sizeof(char), buffer_size - remaining, file);
-                } else {
-                    std::fread(buffer, sizeof(char), buffer_size, file);
-                }
-                head = buffer;
-                remaining = buffer_size;
-            }
-            /**
-             * @brief Flush the buffer completely. Discards any excess data, and completely overwrites it.
-             * 
-             */
-            inline void flush_full() {+
-                head = buffer;
-                remaining = std::fread(buffer, sizeof(char), buffer_size, file);
-            }
         public:
             /**
              * @brief Construct a new binary reader object
              * 
              * @param filename 
              */
-            binary_reader(const char* filename): buffer() {
-                head = buffer;
-                remaining = 0;
+            binary_reader(const char* filename) {
                 file = std::fopen(filename, "rb");
-                flush();
             };
             /**
              * @brief Read a value from file. Returns the value. Should only be used with Primitives and POD structures.
-             * 
-             * @tparam T The type of the value to read. You probably don't need to set this.
-             * @tparam alignment The alignment to read with. You almost always won't need to set this.
              */
-            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
-            inline const T& read() {
-                if (std::align(alignment, sizeof(T), head, remaining) == nullptr) {
-                    flush();
-                }
-                const T& res = *reinterpret_cast<T*>(head);
-                head = (char*) head + sizeof(T);
-                remaining -= sizeof(T);
-                return res;
+            template<typename T>
+            inline T read() {
+                T value;
+                std::fread(&value, sizeof(T), 1, file);
+                return value;
             }
 
             /**
              * @brief Read a value from file. Assigns the value to the reference argument. Should only be used with Primitives and POD structures.
-             * 
-             * @tparam T The type of the value to read. You probably don't need to set this.
-             * @tparam alignment The alignment to read with. You almost always won't need to set this.
              */
-            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
+            template<typename T>
             inline void read(T& arg) {
-                arg = read<T, alignment>();
+                std::fread(&arg, sizeof(T), 1, file);
             };
-            /**
-             * @brief Read a value from file. Directly assigns the value to the pointer argument. Should only be used with Primitives and POD structures.
-             * 
-             * @tparam T The type of the value to read. You probably don't need to set this.
-             * @tparam alignment The alignment to read with. You almost always won't need to set this.
-             */
-            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
-                requires (!std::is_trivially_copyable_v<T>)
+            
+            template<typename T>
             inline void read(T* arg) {
-                read<T, alignment>(*arg);
+                std::fread(arg, sizeof(T), 1, file);
             };
-            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
-                requires (std::is_trivially_copyable_v<T>)
-            inline void read(T * arg) {
-                if (std::align(alignment, sizeof(T), head, remaining) == nullptr) {
-                    flush();
-                }
-                std::memcpy(arg, head, sizeof(T));
-                head = (char*) head + sizeof(T);
-                remaining -= sizeof(T);
-            };
-            template<typename T, size_t alignment = compact ? alignof(char) : alignof(T), std::enable_if_t<buffer_size >= sizeof(T) && is_power_two_v<alignment>, bool> = true>
-            inline void read_array(T * arg, size_t length) {
-                // TODO: More efficient impl
-                for (size_t i = 0; i < length; i++) {
-                    read<T, alignment>(arg++);
-                }
+            
+            template<typename T>
+            inline void read_array(T* arg, size_t length) {
+                std::fread(arg, sizeof(T), length, file);
+            }
+            
+            template<typename T>
+            inline std::shared_ptr<T[]> read_array(size_t length) {
+                std::shared_ptr<T[]> pointer = std::make_shared_for_overwrite<T[]>(length);
+                std::fread(pointer.get(), sizeof(T), length, file);
+                return pointer;
             }
             /**
              * @brief Close the file. Invalidates the reader. Does not automatically cleanup the buffer.
@@ -215,8 +116,6 @@ namespace TriangleManipulator {
              */
             inline void close() {
                 std::fclose(file);
-                head = nullptr;
-                remaining = 0;
             }
     };
     inline std::shared_ptr<triangulateio> create_instance() {
@@ -339,36 +238,35 @@ namespace TriangleManipulator {
     
     // Standard text output, compatible with Showme
     void read_node_file(std::string filename, std::shared_ptr<triangulateio> in);
-    void write_node_file(std::string filename, std::shared_ptr<triangulateio> out);
+    void write_node_file(std::string filename, std::shared_ptr<const triangulateio> out);
 
     void read_poly_file(std::string filename, std::shared_ptr<triangulateio> in);
-    void write_poly_file(std::string filename, std::shared_ptr<triangulateio> out);
+    void write_poly_file(std::string filename, std::shared_ptr<const triangulateio> out);
     
     void read_ele_file(std::string filename, std::shared_ptr<triangulateio> in);
-    void write_ele_file(std::string filename, std::shared_ptr<triangulateio> out);
+    void write_ele_file(std::string filename, std::shared_ptr<const triangulateio> out);
 
     void read_edge_file(std::string filename, std::shared_ptr<triangulateio> in);
-    void write_edge_file(std::string filename, std::shared_ptr<triangulateio> out);
+    void write_edge_file(std::string filename, std::shared_ptr<const triangulateio> out);
     
     void write_neigh_file(std::string filename, std::shared_ptr<triangulateio> out);
-    void write_part_file(std::string filename, std::shared_ptr<triangulateio> out);
+    void write_part_file(std::string filename, std::shared_ptr<const triangulateio> out);
 
     // Binary output. Designed to be robust, and compact.
-    void write_node_file_binary(std::string filename, std::shared_ptr<triangulateio> out);
     void read_node_file_binary(std::string filename, std::shared_ptr<triangulateio> in);
+    void write_node_file_binary(std::string filename, std::shared_ptr<const triangulateio> out);
 
-    void write_poly_file_binary(std::string filename, std::shared_ptr<triangulateio> out);
-    void read_poly_file_binary(std::string filename, std::shared_ptr<triangulateio> in);
-
+    void read_poly_file_binary(std::string filename, std::shared_ptr<const triangulateio> in);
+    void write_poly_file_binary(std::string filename, std::shared_ptr<const triangulateio> out);
+    
     void read_ele_file_binary(std::string filename, std::shared_ptr<triangulateio> in);
-    void write_ele_file_binary(std::string filename, std::shared_ptr<triangulateio> out);
+    void write_ele_file_binary(std::string filename, std::shared_ptr<const triangulateio> out);
 
     void read_edge_file_binary(std::string filename, std::shared_ptr<triangulateio> in);
-    void write_edge_file_binary(std::string filename, std::shared_ptr<triangulateio> out);
+    void write_edge_file_binary(std::string filename, std::shared_ptr<const triangulateio> out);
 
-    
     void read_neigh_file_binary(std::string filename, std::shared_ptr<triangulateio> in);
-    void write_neigh_file_binary(std::string filename, std::shared_ptr<triangulateio> out);
+    void write_neigh_file_binary(std::string filename, std::shared_ptr<const triangulateio> out);
 }
 
 #endif /* TRIANGLEMANIPULATOR_HPP_ */

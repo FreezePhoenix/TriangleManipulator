@@ -5,30 +5,29 @@
 #include <iterator>
 #include <utility>
 #include <vector>
-#include <optional>
 
-template <typename K, typename T, typename C = std::less<K>,
-	class A = std::allocator<std::pair<K, T>>>
-	requires std::predicate<C, K, K>
+template <typename K, typename T, typename C = std::less<K>, typename A = std::allocator<std::pair<K, T>>>
+	requires std::predicate<C, K, K>&& std::same_as<std::pair<K, T>, typename A::value_type>
 class flat_multimap {
 public:
-	typedef std::pair<K, T> value_type;
-	typedef T mapped_type;
-	typedef K key_type;
-	typedef C key_compare;
-	typedef std::vector<value_type, A>::size_type size_type;
-	typedef std::vector<value_type, A>::difference_type difference_type;
-	typedef std::vector<value_type, A>::iterator iterator;
-	typedef std::vector<value_type, A>::const_iterator const_iterator;
-	typedef value_type& reference;
-	typedef const value_type& const_reference;
-	typedef std::allocator_traits<A>::pointer pointer;
-	typedef std::allocator_traits<A>::const_pointer const_pointer;
-	typedef std::reverse_iterator<iterator> reverse_iterator;
-	typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
-	typedef std::vector<value_type, A>::allocator_type allocator_type;
+	using value_type 				= std::pair<K, T>;
+	using mapped_type 				= T;
+	using key_type 					= K;
+	using key_compare 				= C;
+	using size_type 				= std::vector<value_type, A>::size_type;
+	using difference_type			= std::vector<value_type, A>::difference_type;
+	using iterator					= std::vector<value_type, A>::iterator;
+	using const_iterator 			= std::vector<value_type, A>::const_iterator;
+	using reference 				= std::pair<const key_type&, value_type&>;
+	using const_reference 			= std::pair<const key_type&, const value_type&>;
+	using reverse_iterator 			= std::reverse_iterator<iterator>;
+	using const_reverse_iterator 	= std::reverse_iterator<const_iterator>;
+	using allocator_type 			= std::vector<value_type, A>::allocator_type;
+	using pointer 					= std::allocator_traits<A>::pointer;
+	using const_pointer 			= std::allocator_traits<A>::const_pointer;
 private:
 	std::vector<value_type, A> buffer;
+	[[no_unique_address]]
 	C comparator;
 public:
 	constexpr flat_multimap() : buffer(), comparator() {
@@ -40,23 +39,6 @@ public:
 									 const A& allocator = A())
 		: buffer(allocator), comparator(comparator) {
 	};
-	constexpr flat_multimap(const flat_multimap& other) noexcept
-		: buffer(other.buffer), comparator(other.comparator) {
-	}
-	constexpr flat_multimap(flat_multimap&& other) noexcept
-		: buffer(std::move(other.buffer)),
-		comparator(std::move(other.comparator)) {
-	}
-	constexpr flat_multimap& operator=(const flat_multimap& other) noexcept {
-		return *this = flat_multimap(other);
-	}
-	constexpr flat_multimap& operator=(flat_multimap&& other) noexcept {
-		std::swap(buffer, other.buffer);
-		std::swap(comparator, other.comparator);
-		return *this;
-	}
-	constexpr ~flat_multimap() {
-	}
 	constexpr allocator_type get_allocator() const noexcept {
 		return buffer.get_allocator();
 	}
@@ -90,67 +72,97 @@ public:
 	constexpr const_pointer data() const noexcept {
 		return buffer.data();
 	}
-    constexpr iterator insert(const value_type& value) {
-        return buffer.insert(
-            std::upper_bound(
-                cbegin(), cend(), value,
-                [](const value_type& left, const value_type& right) {
-                    return C()(left.first, right.first);
-                }),
-            value);
-    }
-    constexpr iterator insert(value_type&& value) {
-        const_iterator destination = std::upper_bound(
-            cbegin(), cend(), value,
-            [](const value_type& left, const value_type& right) {
-                return C()(left.first, right.first);
-            });
-        return buffer.insert(destination, std::move(value));
-    }
-	constexpr size_type erase(const key_type& key) {
+	constexpr iterator insert(const value_type& value) {
+		return buffer.insert(
+			std::upper_bound(
+				cbegin(), cend(), value,
+				[this](const value_type& left, const value_type& right) {
+					return comparator(left.first, right.first);
+				}),
+			value);
+	}
+	constexpr iterator insert(value_type&& value) {
+		const_iterator destination = std::upper_bound(
+			cbegin(), cend(), value,
+			[this](const value_type& left, const value_type& right) {
+				return comparator(left.first, right.first);
+			});
+		return buffer.insert(destination, std::move(value));
+	}
+	template<class... Args>
+	constexpr iterator emplace(Args&&... args) {
+		value_type value(std::forward<Args>(args)...);
+		const_iterator destination = std::upper_bound(
+			cbegin(), cend(), value,
+			[this](const value_type& left, const value_type& right) {
+				return comparator(left.first, right.first);
+			});
+		return buffer.insert(destination, std::move(value));
+	}
+
+	template<typename KK>
+		requires std::predicate<C, key_type, KK>&& std::predicate<C, KK, key_type>
+	constexpr size_type erase(const KK& key) {
 		const auto [first, last] = equal_range(key);
 		size_type dist = std::distance(first, last);
 		buffer.erase(first, last);
 		return dist;
 	}
-	constexpr size_type count(const key_type& key) const {
+
+	template<typename KK>
+		requires std::predicate<C, key_type, KK>&& std::predicate<C, KK, key_type>
+	constexpr size_type count(const KK& key) const {
 		const auto [first, last] = equal_range(key);
 		return std::distance(first, last);
 	}
-	constexpr bool contains(const key_type& key) const {
+
+	template<typename KK>
+		requires std::predicate<C, key_type, KK>&& std::predicate<C, KK, key_type>
+	constexpr bool contains(const KK& key) const {
 		const_iterator first = lower_bound(key);
 		return (!(first == buffer.cend()) and !(comparator(key, first->first)));
 	}
-	constexpr std::pair<iterator, iterator> equal_range(const key_type& key) {
+	template<typename KK>
+		requires std::predicate<C, key_type, KK>&& std::predicate<C, KK, key_type>
+	constexpr std::pair<iterator, iterator> equal_range(const KK& key) {
 		return std::make_pair(lower_bound(key), upper_bound(key));
 	}
-	constexpr std::pair<const_iterator, const_iterator> equal_range(
-		const key_type& key) const {
+	template<typename KK>
+		requires std::predicate<C, key_type, KK>&& std::predicate<C, KK, key_type>
+	constexpr std::pair<const_iterator, const_iterator> equal_range(const KK& key) const {
 		return std::make_pair(lower_bound(key), upper_bound(key));
 	}
-	constexpr iterator lower_bound(const key_type& key) {
+	template<typename KK>
+		requires std::predicate<C, key_type, KK>
+	constexpr iterator lower_bound(const KK& key) {
 		return std::lower_bound(begin(), end(), key,
-			[this](const value_type& left, const key_type& right) {
+			[this](const value_type& left, const KK& right) {
 				return comparator(left.first, right);
 			});
 	}
-	constexpr const_iterator lower_bound(const key_type& key) const {
+	template<typename KK>
+		requires std::predicate<C, key_type, KK>
+	constexpr const_iterator lower_bound(const KK& key) const {
 		return std::lower_bound(cbegin(), cend(), key,
-			[this](const value_type& left, const key_type& right) {
+			[this](const value_type& left, const KK& right) {
 				return comparator(left.first, right);
 			});
 	}
-	constexpr iterator upper_bound(const key_type& key) {
+	template<typename KK>
+		requires std::predicate<C, KK, key_type>
+	constexpr iterator upper_bound(const KK& key) {
 		return std::upper_bound(
 			begin(), end(), key,
-			[this](const key_type& left, const value_type& right) {
+			[this](const KK& left, const value_type& right) {
 				return comparator(left, right.first);
 			});
 	}
-	constexpr const_iterator upper_bound(const key_type& key) const {
+	template<typename KK>
+		requires std::predicate<C, KK, key_type>
+	constexpr const_iterator upper_bound(const KK& key) const {
 		return std::upper_bound(
 			cbegin(), cend(), key,
-			[this](const key_type& left, const value_type& right) {
+			[this](const KK& left, const value_type& right) {
 				return comparator(left, right.first);
 			});
 	}
@@ -165,7 +177,7 @@ public:
 				   });
 		source.clear();
 	}
-	
+
 	constexpr void merge(flat_multimap<K, T, C, A>&& source) {
 		std::vector<value_type, A> vec(size() + source.size(),
 									   buffer.get_allocator());

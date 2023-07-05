@@ -120,7 +120,7 @@ namespace TriangleManipulator {
      * @param file 
      * @param out 
      */
-    inline void write_node_section(fmt::v8::ostream& file, std::shared_ptr<triangulateio> out) {
+    inline void write_node_section(fmt::v8::ostream& file, std::shared_ptr<const triangulateio> out) {
         const std::size_t points = out->numberofpoints;
         const unsigned int points_attributes = out->numberofpointattributes;
         const int markers = out->pointmarkerlist != nullptr;
@@ -168,13 +168,13 @@ namespace TriangleManipulator {
      * @param filename 
      * @param out 
      */
-    void write_node_file(std::string filename, std::shared_ptr<triangulateio> out) {
+    void write_node_file(std::string filename, std::shared_ptr<const triangulateio> out) {
         fmt::v8::ostream file = fmt::output_file(filename.c_str());
         write_node_section(file, out);
         file.close();
     }
 
-    inline void read_node_section_binary(binary_reader<>& reader, std::shared_ptr<triangulateio> in) {
+    inline void read_node_section_binary(binary_reader& reader, std::shared_ptr<triangulateio> in) {
         const unsigned int points               = in->numberofpoints            = reader.read<unsigned int>();
         const unsigned int points_attributes    = in->numberofpointattributes   = reader.read<unsigned int>();
         const unsigned int markers                                              = reader.read<unsigned int>();
@@ -204,7 +204,7 @@ namespace TriangleManipulator {
         }
     }
     
-    inline void write_node_section_binary(binary_writer<>& writer, std::shared_ptr<triangulateio> out) {
+    inline void write_node_section_binary(binary_writer& writer, std::shared_ptr<const triangulateio> out) {
         const unsigned int points = out->numberofpoints;
         const unsigned int points_attributes = out->numberofpointattributes;
         const char node_markers = out->pointmarkerlist != nullptr;
@@ -232,13 +232,13 @@ namespace TriangleManipulator {
     }
 
     void read_node_file_binary(std::string filename, std::shared_ptr<triangulateio> in) {
-        binary_reader<> reader = binary_reader<>(filename.c_str());
+        binary_reader reader(filename.c_str());
         read_node_section_binary(reader, in);
         reader.close();
     }
     
-    void write_node_file_binary(std::string filename, std::shared_ptr<triangulateio> out) {
-        binary_writer<> writer = binary_writer<>(filename.c_str());
+    void write_node_file_binary(std::string filename, std::shared_ptr<const triangulateio> out) {
+        binary_writer writer(filename.c_str());
         write_node_section_binary(writer, out);
         writer.close();
     }
@@ -289,7 +289,7 @@ namespace TriangleManipulator {
      * @param filename 
      * @param out 
      */
-    void write_poly_file(std::string filename, std::shared_ptr<triangulateio> out) {
+    void write_poly_file(std::string filename, std::shared_ptr<const triangulateio> out) {
         fmt::v8::ostream file = fmt::output_file(filename.c_str());
         write_node_section(file, out);
         const unsigned int segments = out->numberofsegments;
@@ -318,7 +318,7 @@ namespace TriangleManipulator {
     }
 
     void read_poly_file_binary(std::string filename, std::shared_ptr<triangulateio> in) {
-        binary_reader<> reader = binary_reader<>(filename.c_str());
+        binary_reader reader(filename.c_str());
         const unsigned int segments = reader.read<unsigned int>();
         const unsigned int holes = reader.read<unsigned int>();
         const unsigned int segment_markers = reader.read<unsigned int>();
@@ -349,8 +349,8 @@ namespace TriangleManipulator {
         reader.close();
     }
     
-    void write_poly_file_binary(std::string filename, std::shared_ptr<triangulateio> out) {
-        binary_writer<> writer = binary_writer<>(filename.c_str());
+    void write_poly_file_binary(std::string filename, std::shared_ptr<const triangulateio> out) {
+        binary_writer writer(filename.c_str());
         const unsigned int segments = out->numberofsegments;
         const unsigned int markers  = out->segmentmarkerlist != nullptr;
         const unsigned int holes = out->numberofholes;
@@ -429,7 +429,7 @@ namespace TriangleManipulator {
      * @param filename 
      * @param out 
      */
-    void write_edge_file(std::string filename, std::shared_ptr<triangulateio> out) {
+    void write_edge_file(std::string filename, std::shared_ptr<const triangulateio> out) {
         fmt::v8::ostream file = fmt::output_file(filename.c_str());
         const unsigned int edges = out->numberofedges;
         const int markers = out->edgemarkerlist != nullptr;
@@ -455,36 +455,25 @@ namespace TriangleManipulator {
     }
 
     void read_edge_file_binary(std::string filename, std::shared_ptr<triangulateio> in) {
-        binary_reader<> reader = binary_reader<>(filename.c_str());
+        binary_reader reader(filename.c_str());
         const unsigned int edges = reader.read<unsigned int>();
-        const char markers = reader.read<char>();
-        const char voronoi = reader.read<char>();
+        const bool markers = reader.read<bool>();
+        const bool voronoi = reader.read<bool>();
         in->numberofedges = edges;
-        in->edgelist = trimalloc<int>(in->numberofedges * 2);
-        int* edge_ptr = in->edgelist.get();
+        in->edgelist = reader.read_array<int>(edges * 2);
         if (voronoi) {
-            in->normlist = trimalloc<double>(in->numberofedges * 2);
+            in->normlist = reader.read_array<double>(edges * 2);
         } else if (markers) {
-            in->edgemarkerlist = trimalloc<int>(in->numberofedges);
-        }
-        double* norm_ptr = in->normlist.get();
-        int* marker_ptr = in->edgemarkerlist.get();
-        if (edges > 0) {
-            reader.read_array(edge_ptr, edges * 2);
-            if (voronoi) {
-                reader.read_array(norm_ptr, edges * 2);
-            } else if (markers) {
-                reader.read_array(marker_ptr, edges);
-            }
+            in->normlist = reader.read_array<double>(edges);
         }
         reader.close();
     }
     
-    void write_edge_file_binary(std::string filename, std::shared_ptr<triangulateio> out) {
+    void write_edge_file_binary(std::string filename, std::shared_ptr<const triangulateio> out) {
         binary_writer writer = binary_writer(filename.c_str());
         const unsigned int edges = out->numberofedges;
-        const char markers = out->edgemarkerlist != nullptr;
-        const char voronoi = out->normlist != nullptr;
+        const bool markers = out->edgemarkerlist != nullptr;
+        const bool voronoi = out->normlist != nullptr;
         const int* edges_ptr = out->edgelist.get();
         const REAL* norms_ptr = out->normlist.get();
         const int* markers_ptr = out->edgemarkerlist.get();
@@ -526,7 +515,7 @@ namespace TriangleManipulator {
         file.close();
     }
     
-    void write_ele_file(std::string filename, std::shared_ptr<triangulateio> out) {
+    void write_ele_file(std::string filename, std::shared_ptr<const triangulateio> out) {
         fmt::v8::ostream file = fmt::output_file(filename.c_str());
         const unsigned int triangles = out->numberoftriangles;
         const unsigned int num_attributes = out->numberoftriangleattributes;
@@ -543,7 +532,7 @@ namespace TriangleManipulator {
     }
 
     void read_ele_file_binary(std::string filename, std::shared_ptr<triangulateio> in) {
-        binary_reader<> reader = binary_reader<>(filename.c_str());
+        binary_reader reader(filename.c_str());
         const unsigned int triangles = reader.read<unsigned int>();
         const unsigned int num_attributes = reader.read<unsigned int>();
         in->numberoftriangles = triangles;
@@ -563,8 +552,8 @@ namespace TriangleManipulator {
         reader.close();
     }
 
-    void write_ele_file_binary(std::string filename, std::shared_ptr<triangulateio> out) {
-        binary_writer<> writer = binary_writer<>(filename.c_str());
+    void write_ele_file_binary(std::string filename, std::shared_ptr<const triangulateio> out) {
+        binary_writer writer(filename.c_str());
         const unsigned int triangles = out->numberoftriangles;
         const unsigned int num_attributes = out->numberoftriangleattributes;
         const unsigned int* triangles_ptr = out->trianglelist.get();
@@ -576,8 +565,8 @@ namespace TriangleManipulator {
         writer.close();
     }
 
-     void write_neigh_file_binary(std::string filename, std::shared_ptr<triangulateio> out) {
-        binary_writer<> writer = binary_writer<>(filename.c_str());
+     void write_neigh_file_binary(std::string filename, std::shared_ptr<const triangulateio> out) {
+        binary_writer writer(filename.c_str());
         const unsigned int triangles = out->numberoftriangles;
         const int* neighbors_ptr = out->neighborlist.get();
         writer.write(triangles);
@@ -588,7 +577,7 @@ namespace TriangleManipulator {
      }
 
      void read_neigh_file_binary(std::string filename, std::shared_ptr<triangulateio> in) {
-        binary_reader<> reader = binary_reader<>(filename.c_str());
+        binary_reader reader(filename.c_str());
         const unsigned int triangles = reader.read<unsigned int>();
         in->numberoftriangles = triangles;
 
