@@ -149,8 +149,7 @@ namespace PointLocation {
                 graph.insert({ first, second });
             }
             auto neighbhors(unsigned int n) const {
-                const auto [first, last] = graph.equal_range(n);
-                return std::ranges::subrange(first, last) | std::views::values;
+                return graph.equal_range(n);
             }
     };
 

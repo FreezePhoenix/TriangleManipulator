@@ -177,7 +177,7 @@ namespace TriangleManipulator {
     inline void read_node_section_binary(binary_reader& reader, std::shared_ptr<triangulateio> in) {
         const unsigned int points               = in->numberofpoints            = reader.read<unsigned int>();
         const unsigned int points_attributes    = in->numberofpointattributes   = reader.read<unsigned int>();
-        const unsigned int markers                                              = reader.read<unsigned int>();
+        const bool markers                                              = reader.read<bool>();
         
         if (points > 0) {
             in->pointlist = trimalloc<REAL>(points * 2);
@@ -207,7 +207,7 @@ namespace TriangleManipulator {
     inline void write_node_section_binary(binary_writer& writer, std::shared_ptr<const triangulateio> out) {
         const unsigned int points = out->numberofpoints;
         const unsigned int points_attributes = out->numberofpointattributes;
-        const char node_markers = out->pointmarkerlist != nullptr;
+        const bool node_markers = out->pointmarkerlist != nullptr;
         const double* points_ptr = out->pointlist.get();
         const double* attributes_ptr = out->pointattributelist.get();
         const int* marker_ptr = out->pointmarkerlist.get();
@@ -499,7 +499,7 @@ namespace TriangleManipulator {
         
         in->trianglelist = trimalloc<unsigned int>(in->numberoftriangles * 3);
         if (in->numberoftriangleattributes > 0) {
-            in->triangleattributelist = trimalloc<REAL>(in->numberoftriangles * 3);
+            in->triangleattributelist = trimalloc<REAL>(in->numberoftriangles * in->numberoftriangleattributes);
         }
         unsigned int* triangles_ptr = in->trianglelist.get();
         REAL* attributes_ptr = in->triangleattributelist.get();
@@ -540,7 +540,7 @@ namespace TriangleManipulator {
 
         in->trianglelist = trimalloc<unsigned int>(in->numberoftriangles * 3);
         if (in->numberoftriangleattributes > 0) {
-            in->triangleattributelist = trimalloc<REAL>(in->numberoftriangles * 3);
+            in->triangleattributelist = trimalloc<REAL>(in->numberoftriangles * num_attributes);
         }
         unsigned int* triangles_ptr = in->trianglelist.get();
         REAL* attributes_ptr = in->triangleattributelist.get();

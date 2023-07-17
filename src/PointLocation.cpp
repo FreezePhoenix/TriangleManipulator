@@ -104,7 +104,7 @@ namespace PointLocation {
         // triangulation.reserve(output->numberoftriangles);
         this->all_triangles.reserve(output->numberoftriangles);
         const unsigned int* output_triangle_ptr = output->trianglelist.get();
-        
+
         for (std::size_t i = 0; i < output->numberoftriangles; i++) {
             unsigned int a = *output_triangle_ptr++;
             unsigned int b = *output_triangle_ptr++;
@@ -339,11 +339,13 @@ namespace PointLocation {
         size_t directed_graph_size = reader.read<size_t>();
         auto& directed_graph_entries = directed_graph.graph;
         directed_graph_entries.resize(directed_graph_size);
+
         reader.read_array(directed_graph_entries.data(), directed_graph_size);
 
         auto& vertices = planar_graph.vertices;
         size_t planar_graph_vertices_size = reader.read<size_t>();
         vertices.reserve(planar_graph_vertices_size);
+
         for (size_t i = 0; i < planar_graph_vertices_size; i++) {
             size_t triangles_size = reader.read<size_t>();
             size_t neighs_size = reader.read<size_t>();
@@ -413,21 +415,22 @@ namespace PointLocation {
         unsigned int last_checked = directed_graph.root, prev;
         do {
             prev = last_checked;
-            const auto& neighs = directed_graph.neighbhors(last_checked);
-            if (neighs.size() == 0) {
+            auto [first, last] = directed_graph.neighbhors(last_checked);
+            if (std::distance(first, last) == 0) {
                 if (triangle_map[last_checked] == -1) {
                     return std::nullopt;
                 }
                 return triangle_map[last_checked];
             }
-            for (const unsigned int& child : neighs) {
+            for (auto current = first;current != last; current++) {
+                auto child = current->second;
                 if (triangle_contains_point(point, planar_graph.all_triangles[child])) {
                     last_checked = child;
                     break;
                 }
             }
         } while (prev != last_checked);
-        
+
         // This really shouldn't happen. If this happens, this means that a point was somewhere where it was inside
         // A triangle, but not inside any of its children. The children of a triangle should cover all of a triangle
         // With no gaps. Thus... it should be impossible.

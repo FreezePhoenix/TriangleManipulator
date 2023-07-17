@@ -103,7 +103,7 @@ namespace TriangleManipulator {
             inline void read_array(T* arg, size_t length) {
                 std::fread(arg, sizeof(T), length, file);
             }
-            
+
             template<typename T>
             inline std::shared_ptr<T[]> read_array(size_t length) {
                 std::shared_ptr<T[]> pointer = std::make_shared_for_overwrite<T[]>(length);
