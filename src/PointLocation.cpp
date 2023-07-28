@@ -3,7 +3,8 @@
 #include "TriangleManipulator/TriangleManipulator.hpp"
 #include "earcut.hpp"
 #include "fmt/os.h"
-#include <iostream>
+#include <map>
+#include <unordered_map>
 
 // template class std::vector<PointLocation::Point>;
 // template class std::vector<PointLocation::Line>;

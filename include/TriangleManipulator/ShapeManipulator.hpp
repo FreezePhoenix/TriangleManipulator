@@ -5,8 +5,7 @@
 
 #include "TriangleManipulator/PointLocation.hpp"
 #include <functional>
-#include <memory>
-#include <map>
+#include <set>
 
 inline bool intersects(const PointLocation::Line& line_one, const PointLocation::Line& line_two) {
     if(line_one.first.x == line_one.second.x) {

@@ -3,23 +3,14 @@
 #ifndef TRIANGLEMANIPULATOR_HPP_
 #define TRIANGLEMANIPULATOR_HPP_
 
-#include <numbers>
 #include <functional>
-#include <stdlib.h>
 #include <vector>
 #include <fstream>
 #include <sstream>
-#include <memory>
-#include <fmt/os.h>
+#include "fmt/os.h"
 #include <triangle.h>
 
 namespace TriangleManipulator {
-    template<size_t S, bool = std::has_single_bit(S)>
-    struct is_power_two : public std::false_type {};
-    template<size_t S>
-    struct is_power_two<S, true> : public std::true_type {};
-    template<size_t S>
-    inline constexpr bool is_power_two_v = is_power_two<S>::value;
     /**
      * @brief A class to write binary data to files.
      */
@@ -49,9 +40,15 @@ namespace TriangleManipulator {
             inline void write(const T* arg) {
                 std::fwrite(arg, sizeof(T), 1, file);
             }
+
             template<typename T>
             inline void write_array(const T* arg, size_t length) {
                 std::fwrite(arg, sizeof(T), length, file);
+            }
+
+            template<typename T>
+            inline void write_array(std::shared_ptr<T[]> pointer, size_t length) {
+                std::fwrite(pointer.get(), sizeof(T), length, file);
             }
             /**
              * @brief Close the file. Flushes it, and invalidates the writer. Does not automatically cleanup the buffer.
@@ -186,7 +183,7 @@ namespace TriangleManipulator {
     void filter_points(std::shared_ptr<triangulateio> input, std::shared_ptr<triangulateio> output, std::function<bool(int, REAL, REAL, REAL)> predicate);
     void inject_holes(std::shared_ptr<triangulateio> input, std::shared_ptr<triangulateio> output);
     template <typename T>
-    T parse_str(const std::string& str);
+    inline T parse_str(const std::string& str);
     template <typename T>
     inline std::vector<T> read_line(std::istream& stream) {
         std::string str;

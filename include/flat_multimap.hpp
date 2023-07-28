@@ -1,8 +1,10 @@
-#include <stddef.h>
+#pragma once
+
+#ifndef _FLAT_MULTIMAP_HPP
+#define _FLAT_MULTIMAP_HPP
 
 #include <functional>
 #include <algorithm>
-#include <iterator>
 #include <utility>
 #include <vector>
 
@@ -203,3 +205,5 @@ class flat_multimap {
         return buffer.crend();
     }
 };
+
+#endif

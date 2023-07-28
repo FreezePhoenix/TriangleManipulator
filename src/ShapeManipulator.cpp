@@ -1,6 +1,8 @@
 #include "TriangleManipulator/ShapeManipulator.hpp"
 #include "TriangleManipulator/TriangleManipulator.hpp"
 #include <iostream>
+#include <unordered_set>
+
 template class std::vector<std::vector<PointLocation::Line>*>;
 
 namespace ShapeManipulator {

@@ -1,7 +1,6 @@
 #include <stdio.h>
 
 #include "TriangleManipulator/TriangleManipulatorTemplates.hpp"
-#include <new>
 
 namespace TriangleManipulator {
 
@@ -472,21 +471,16 @@ namespace TriangleManipulator {
     void write_edge_file_binary(std::string filename, std::shared_ptr<const triangulateio> out) {
         binary_writer writer = binary_writer(filename.c_str());
         const unsigned int edges = out->numberofedges;
-        const bool markers = out->edgemarkerlist != nullptr;
-        const bool voronoi = out->normlist != nullptr;
-        const int* edges_ptr = out->edgelist.get();
-        const REAL* norms_ptr = out->normlist.get();
-        const int* markers_ptr = out->edgemarkerlist.get();
-        writer.write(edges);
+        const bool markers = (bool) out->edgemarkerlist;
+        const bool voronoi = (bool) out->normlist;
+        writer.write(out->numberofedges);
         writer.write(markers);
         writer.write(voronoi);
-        if (edges > 0) {
-            writer.write_array(edges_ptr, edges * 2);
-            if (voronoi) {
-                writer.write_array(norms_ptr, edges * 2);
-            } else if (markers) {
-                writer.write_array(markers_ptr, edges);
-            }
+        writer.write_array(out->edgelist, edges * 2);
+        if (voronoi) {
+            writer.write_array(out->normlist, edges * 2);
+        } else if (markers) {
+            writer.write_array(out->edgemarkerlist, edges);
         }
         writer.close();
     }
@@ -556,23 +550,18 @@ namespace TriangleManipulator {
         binary_writer writer(filename.c_str());
         const unsigned int triangles = out->numberoftriangles;
         const unsigned int num_attributes = out->numberoftriangleattributes;
-        const unsigned int* triangles_ptr = out->trianglelist.get();
-        const REAL* attributes_ptr = out->triangleattributelist.get();
         writer.write(triangles);
         writer.write(num_attributes);
-        writer.write_array(triangles_ptr, triangles * 3);
-        writer.write_array(attributes_ptr, triangles * num_attributes);
+        writer.write_array(out->trianglelist, triangles * 3);
+        writer.write_array(out->triangleattributelist, triangles * num_attributes);
         writer.close();
     }
 
      void write_neigh_file_binary(std::string filename, std::shared_ptr<const triangulateio> out) {
         binary_writer writer(filename.c_str());
         const unsigned int triangles = out->numberoftriangles;
-        const int* neighbors_ptr = out->neighborlist.get();
         writer.write(triangles);
-        if (triangles > 0) {
-            writer.write_array(neighbors_ptr, triangles * 3);
-        }
+        writer.write_array(out->neighborlist, triangles * 3);
         writer.close();
      }
 
@@ -581,19 +570,17 @@ namespace TriangleManipulator {
         const unsigned int triangles = reader.read<unsigned int>();
         in->numberoftriangles = triangles;
 
-        in->neighborlist = trimalloc<int>(in->numberoftriangles * 3);
-        int* neighbors_ptr = in->neighborlist.get();
-        reader.read_array(neighbors_ptr, triangles * 3);
+        in->neighborlist = reader.read_array<int>(triangles * 3);
         reader.close();
     }
 
     void write_neigh_file(std::string filename, std::shared_ptr<triangulateio> out) {
         fmt::v8::ostream file = fmt::output_file(filename.c_str());
         const unsigned int triangles = out->numberoftriangles;
-        const int* neighbors_ptr = out->neighborlist.get();
+        // const int* neighbors_ptr = out->neighborlist.get();
         file.print("{} 3\n", triangles);
         for (unsigned int i = 0; i < triangles; i++) {
-            file.print("{} {} {} {}\n", i, neighbors_ptr[3 * i], neighbors_ptr[3 * i + 1], neighbors_ptr[3 * i + 2]);
+            file.print("{} {} {} {}\n", i, out->neighborlist[3 * i], out->neighborlist[3 * i + 1], out->neighborlist[3 * i + 2]);
         }
         file.close();
     }

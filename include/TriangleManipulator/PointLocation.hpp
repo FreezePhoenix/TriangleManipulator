@@ -4,17 +4,10 @@
 #define POINT_LOCATION_HPP_
 
 #include <triangle.h>
-#include <map>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 #include "flat_multimap.hpp"
-#include <set>
 #include <optional>
-#include <memory>
-#include <iostream>
 #include <cmath>
-#include <ranges>
 
 namespace PointLocation {
     typedef double double64x2_t __attribute__((__vector_size__(16)));
