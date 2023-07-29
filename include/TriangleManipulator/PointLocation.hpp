@@ -4,7 +4,6 @@
 #define POINT_LOCATION_HPP_
 
 #include <triangle.h>
-#include <vector>
 #include "flat_multimap.hpp"
 #include <optional>
 #include <cmath>
